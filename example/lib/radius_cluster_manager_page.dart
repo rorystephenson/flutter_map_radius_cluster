@@ -90,7 +90,6 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
               onError: (error, _) {
                 debugPrint('Captured search error: $error');
               },
-              onMarkerTap: (m) => debugPrint('${m.point}'),
               clusterWidgetSize: const Size(40, 40),
               anchor: AnchorPos.align(AnchorAlign.center),
               popupOptions: PopupOptions(popupBuilder: (context, marker) {

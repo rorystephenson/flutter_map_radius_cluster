@@ -10,9 +10,12 @@ import 'center_zoom_tween.dart';
 class CenterZoomController {
   final TickerProvider _vsync;
   final MapState mapState;
-  AnimationController? _zoomController;
+
   CurvedAnimation? _animation;
   double? _velocity;
+  AnimationController? _zoomController;
+  Tween<CenterZoom>? _tween;
+
   static const distanceCalculator = Distance();
 
   CenterZoomController({
@@ -32,6 +35,7 @@ class CenterZoomController {
         vsync: _vsync,
         duration: animationOptions.duration,
       );
+      _zoomController!.addListener(_onMove);
       _animation = CurvedAnimation(
         parent: _zoomController!,
         curve: animationOptions.curve,
@@ -70,17 +74,13 @@ class CenterZoomController {
       center: LatLng(centerZoom.center.latitude, centerZoom.center.longitude),
       zoom: centerZoom.zoom,
     );
-    final centerZoomTween = CenterZoomTween(begin: begin, end: end);
-
+    _tween = CenterZoomTween(begin: begin, end: end);
     if (_velocity != null) _setDynamicDuration(_velocity!, begin, end);
 
-    final listener = _movementListener(centerZoomTween);
-    _zoomController!.addListener(listener);
-    _zoomController!.forward().then((_) {
-      _zoomController!
-        ..removeListener(listener)
-        ..reset();
-    });
+    if (_zoomController!.isAnimating || _zoomController!.isCompleted) {
+      _zoomController!.reset();
+    }
+    _zoomController!.forward();
   }
 
   void _setDynamicDuration(double velocity, CenterZoom begin, CenterZoom end) {
@@ -98,14 +98,12 @@ class CenterZoomController {
         Duration(milliseconds: min(max(translateVelocity, zoomVelocity), 2000));
   }
 
-  VoidCallback _movementListener(Tween<CenterZoom> centerZoomTween) {
-    return () {
-      final centerZoom = centerZoomTween.evaluate(_animation!);
-      mapState.move(
-        centerZoom.center,
-        centerZoom.zoom,
-        source: MapEventSource.custom,
-      );
-    };
+  void _onMove() {
+    final centerZoom = _tween!.evaluate(_animation!);
+    mapState.move(
+      centerZoom.center,
+      centerZoom.zoom,
+      source: MapEventSource.custom,
+    );
   }
 }

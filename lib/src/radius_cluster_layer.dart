@@ -209,7 +209,6 @@ class _RadiusClusterLayerState extends State<RadiusClusterLayer>
         _hidePopupIfZoomLessThan = mapPoint.zoom;
       }
 
-      debugPrint('tapping: ${mapPoint.originalPoint.point}');
       widget.options.onMarkerTap?.call(mapPoint.originalPoint);
     };
   }
