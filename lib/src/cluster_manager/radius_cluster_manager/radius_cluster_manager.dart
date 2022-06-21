@@ -5,7 +5,6 @@ import 'package:flutter_map_radius_cluster/src/cluster_manager/radius_cluster_ma
 import 'package:flutter_map_radius_cluster/src/cluster_manager/radius_cluster_manager/search_radius_indicator.dart';
 import 'package:latlong2/latlong.dart';
 
-/// *... then run a mini server which serves up the pre-generated
 class RadiusClusterManager {
   static const _distanceCalculator =
       Distance(roundResult: false, calculator: Haversine());
@@ -70,26 +69,37 @@ class RadiusClusterManager {
 
     return SearchRadiusIndicator(
       searchCenter: _searchCenter!,
-      radiusSearchState: searchState,
       distanceCalculator: _distanceCalculator,
       mapCalculator: mapCalculator,
       radiusInM: options.radiusInKm * 1000,
-      loadedBorderColor: options.loadedBorderColor,
-      loadingBorderColor: options.loadingBorderColor,
-      errorBorderColor: options.errorBorderColor,
+      borderColor: _searchCircleBorderColor,
       borderWidth: options.searchIndicatorBorderWidth,
     );
   }
 
   Widget? buildNonRotatedOverlay(
       BuildContext context, MapCalculator mapCalculator) {
-    return SearchButton(
-      searchAt: searchAt,
-      searchCenter: _searchCenter,
-      radiusSearchState: searchState,
-      radiusInM: options.radiusInKm * 1000,
-      distanceCalculator: _distanceCalculator,
-      mapCalculator: mapCalculator,
+    final allowSearch = _allowSearch(mapCalculator);
+    return Stack(
+      children: [
+        if (allowSearch)
+          SearchRadiusIndicator(
+            searchCenter: mapCalculator.mapState.center,
+            distanceCalculator: _distanceCalculator,
+            mapCalculator: mapCalculator,
+            radiusInM: options.radiusInKm * 1000,
+            borderColor: options.nextSearchIndicatorColor,
+            borderWidth: options.searchIndicatorBorderWidth,
+          ),
+        SearchButton(
+          searchAt: searchAt,
+          allowSearch: allowSearch,
+          radiusSearchState: searchState,
+          radiusInM: options.radiusInKm * 1000,
+          distanceCalculator: _distanceCalculator,
+          mapCalculator: mapCalculator,
+        ),
+      ],
     );
   }
 
@@ -103,6 +113,51 @@ class RadiusClusterManager {
     } else {
       return RadiusSearchState.loading;
     }
+  }
+
+  Color get _searchCircleBorderColor {
+    switch (searchState) {
+      case RadiusSearchState.complete:
+        return options.loadedBorderColor;
+      case RadiusSearchState.loading:
+        return options.loadingBorderColor;
+      case RadiusSearchState.error:
+        return options.errorBorderColor;
+      case RadiusSearchState.noSearchPerformed:
+        throw 'Should not be drawing a circle if no search was performed';
+    }
+  }
+
+  bool _allowSearch(MapCalculator mapCalculator) {
+    if (searchState != RadiusSearchState.complete) return true;
+
+    if (options.minimumSearchDistanceDifferenceInKm != null) {
+      final distanceFromPreviousSearch = _distanceCalculator.distance(
+        _searchCenter!,
+        mapCalculator.mapState.center,
+      );
+      if (distanceFromPreviousSearch <
+          options.minimumSearchDistanceDifferenceInKm! * 1000) {
+        return false;
+      }
+    }
+
+    final visibleBounds = mapCalculator.mapState.bounds;
+    final corners = [
+      visibleBounds.northWest,
+      visibleBounds.northEast!,
+      visibleBounds.southEast,
+      visibleBounds.southWest!
+    ];
+
+    for (final corner in corners) {
+      if (_distanceCalculator.distance(_searchCenter!, corner) >
+          options.radiusInKm * 1000) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }
 

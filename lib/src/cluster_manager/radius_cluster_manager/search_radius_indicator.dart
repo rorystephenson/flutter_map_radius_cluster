@@ -2,30 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map_radius_cluster/flutter_map_radius_cluster.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'radius_cluster_manager.dart';
 import 'search_circle_painter.dart';
 
 class SearchRadiusIndicator extends StatelessWidget {
   final LatLng searchCenter;
-  final RadiusSearchState radiusSearchState;
   final Distance distanceCalculator;
   final MapCalculator mapCalculator;
   final double radiusInM;
-  final Color loadedBorderColor;
-  final Color loadingBorderColor;
-  final Color errorBorderColor;
+  final Color borderColor;
   final double borderWidth;
 
   const SearchRadiusIndicator({
     super.key,
     required this.searchCenter,
-    required this.radiusSearchState,
     required this.distanceCalculator,
     required this.mapCalculator,
     required this.radiusInM,
-    required this.loadedBorderColor,
-    required this.loadingBorderColor,
-    required this.errorBorderColor,
+    required this.borderColor,
     required this.borderWidth,
   });
 
@@ -48,25 +41,12 @@ class SearchRadiusIndicator extends StatelessWidget {
               circlePixel.x.toDouble(),
               circlePixel.y.toDouble(),
             ),
-            borderColor: _borderColorFor(radiusSearchState),
+            borderColor: borderColor,
             borderWidth: borderWidth,
           ),
           size: constraints.biggest,
         ),
       ),
     );
-  }
-
-  Color _borderColorFor(RadiusSearchState radiusSearchState) {
-    switch (radiusSearchState) {
-      case RadiusSearchState.complete:
-        return loadedBorderColor;
-      case RadiusSearchState.loading:
-        return loadingBorderColor;
-      case RadiusSearchState.error:
-        return errorBorderColor;
-      case RadiusSearchState.noSearchPerformed:
-        throw 'Should not be drawing a circle if no search was performed';
-    }
   }
 }

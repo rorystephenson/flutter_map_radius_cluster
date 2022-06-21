@@ -30,6 +30,12 @@ class RadiusClusterLayerOptions extends LayerOptions {
   /// non-null then [initialCenter] must be provided.
   Supercluster<Marker>? initialClustersAndMarkers;
 
+  /// The minimum distance between searches. If the last search was successful
+  /// and the last search center point is less than this distance from the
+  /// current map center then the search button will be disabled and the next
+  /// search indicator will be hidden.
+  double? minimumSearchDistanceDifferenceInKm;
+
   /// An optional callback to log/report errors that occur in the Future
   /// returned by the [search] callback.
   final Function(dynamic error, StackTrace stackTrace)? onError;
@@ -46,6 +52,10 @@ class RadiusClusterLayerOptions extends LayerOptions {
   /// The color of the search circle indicator when searching results in an
   /// error.
   final Color errorBorderColor;
+
+  /// The color of the search circle indicator which indicates where the next
+  /// search will occur if the search button is pressed.
+  final Color nextSearchIndicatorColor;
 
   /// Function to call when a Marker is tapped
   final void Function(Marker)? onMarkerTap;
@@ -94,11 +104,13 @@ class RadiusClusterLayerOptions extends LayerOptions {
     required this.search,
     this.initialCenter,
     this.initialClustersAndMarkers,
+    this.minimumSearchDistanceDifferenceInKm,
     this.onError,
     this.searchIndicatorBorderWidth = 10,
     Color? loadedBorderColor,
     Color? loadingBorderColor,
     Color? errorBorderColor,
+    Color? nextSearchIndicatorBorderColor,
     this.onMarkerTap,
     this.popupOptions,
     this.rotate,
@@ -116,7 +128,9 @@ class RadiusClusterLayerOptions extends LayerOptions {
             loadedBorderColor ?? Colors.blueAccent.withOpacity(0.4),
         loadingBorderColor = loadingBorderColor ?? Colors.grey.withOpacity(0.5),
         errorBorderColor =
-            errorBorderColor ?? Colors.redAccent.withOpacity(0.4);
+            errorBorderColor ?? Colors.redAccent.withOpacity(0.4),
+        nextSearchIndicatorColor =
+            nextSearchIndicatorBorderColor ?? Colors.grey.withOpacity(0.2);
 }
 
 abstract class AnimationOptions {

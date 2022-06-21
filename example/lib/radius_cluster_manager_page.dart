@@ -66,7 +66,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
       (minLatLng.longitude + maxLatLng.longitude) / 2,
     );
     return Scaffold(
-      appBar: AppBar(title: Text('Flutter Map Radius Cluster Example')),
+      appBar: AppBar(title: const Text('Flutter Map Radius Cluster Example')),
       body: FlutterMap(
         options: MapOptions(
           center: LatLng((maxLatLng.latitude + minLatLng.latitude) / 2,
@@ -87,6 +87,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
               radiusInKm: 100.0,
               search: _search,
               initialCenter: initialLatLng,
+              minimumSearchDistanceDifferenceInKm: 10,
               onError: (error, _) {
                 debugPrint('Captured search error: $error');
               },

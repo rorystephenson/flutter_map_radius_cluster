@@ -7,7 +7,7 @@ import 'radius_cluster_manager.dart';
 class SearchButton extends StatelessWidget {
   final RadiusSearchState radiusSearchState;
   final Function(LatLng center) searchAt;
-  final LatLng? searchCenter;
+  final bool allowSearch;
   final double radiusInM;
   final MapCalculator mapCalculator;
   final DistanceCalculator distanceCalculator;
@@ -16,7 +16,7 @@ class SearchButton extends StatelessWidget {
     super.key,
     required this.radiusSearchState,
     required this.searchAt,
-    required this.searchCenter,
+    required this.allowSearch,
     required this.radiusInM,
     required this.mapCalculator,
     required this.distanceCalculator,
@@ -44,8 +44,7 @@ class SearchButton extends StatelessWidget {
 
   Widget _loadButton() {
     return ElevatedButton(
-      onPressed: radiusSearchState == RadiusSearchState.complete &&
-              _circleContainsVisibleMap()
+      onPressed: !allowSearch
           ? null
           : () {
               searchAt(mapCalculator.mapState.center);
@@ -86,26 +85,5 @@ class SearchButton extends StatelessWidget {
         searchAt(mapCalculator.mapState.center);
       },
     );
-  }
-
-  bool _circleContainsVisibleMap() {
-    assert(searchCenter != null,
-        'Should only consider hiding the button when a load has completed');
-
-    final visibleBounds = mapCalculator.mapState.bounds;
-    final corners = [
-      visibleBounds.northWest,
-      visibleBounds.northEast!,
-      visibleBounds.southEast,
-      visibleBounds.southWest!
-    ];
-
-    for (final corner in corners) {
-      if (distanceCalculator.distance(searchCenter!, corner) > radiusInM) {
-        return false;
-      }
-    }
-
-    return true;
   }
 }
