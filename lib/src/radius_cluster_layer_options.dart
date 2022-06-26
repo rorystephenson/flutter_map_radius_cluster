@@ -2,15 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_marker_popup/extension_api.dart';
-import 'package:flutter_map_radius_cluster/flutter_map_radius_cluster.dart';
+import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supercluster/supercluster.dart';
+
+import 'controller/radius_cluster_controller.dart';
+import 'overlay/search_circle_style.dart';
+import 'state/radius_cluster_state.dart';
 
 typedef ClusterWidgetBuilder = Widget Function(
     BuildContext context, ClusterDataBase? clusterData);
 
+typedef SearchButtonBuilder = Widget Function(
+  BuildContext context,
+  RadiusClusterController controller,
+  RadiusClusterState radiusClusterState,
+);
+
 class RadiusClusterLayerOptions extends LayerOptions {
   /// Cluster builder
-  final ClusterWidgetBuilder builder;
+  final ClusterWidgetBuilder clusterBuilder;
+
+  /// Controller for triggering searches.
+  final RadiusClusterController? controller;
 
   /// The cluster search radius
   final double radiusInKm;
@@ -21,6 +35,10 @@ class RadiusClusterLayerOptions extends LayerOptions {
   /// the [onError] callback if you wish to log/otherwise react to errors.
   final Future<Supercluster<Marker>> Function(double radius, LatLng center)
       search;
+
+  /// An optional builder which allows you to overlay a search button, varying
+  /// the style and behaviour based on the search state.
+  final SearchButtonBuilder? searchButtonBuilder;
 
   /// The initial cluster search center. If [initialClustersAndMarkers] is not
   /// provided then a search will be performed immediately.
@@ -40,22 +58,9 @@ class RadiusClusterLayerOptions extends LayerOptions {
   /// returned by the [search] callback.
   final Function(dynamic error, StackTrace stackTrace)? onError;
 
-  /// The width of the search circle indicator border.
-  final double searchIndicatorBorderWidth;
-
-  /// The color of the search circle indicator when searching succeeds.
-  final Color loadedBorderColor;
-
-  /// The color of the search circle indicator when searching is underway.
-  final Color loadingBorderColor;
-
-  /// The color of the search circle indicator when searching results in an
-  /// error.
-  final Color errorBorderColor;
-
-  /// The color of the search circle indicator which indicates where the next
-  /// search will occur if the search button is pressed.
-  final Color nextSearchIndicatorColor;
+  /// The style of the search circle that indicates the state of the most recent
+  /// search.
+  final SearchCircleStyle searchCircleStyle;
 
   /// Function to call when a Marker is tapped
   final void Function(Marker)? onMarkerTap;
@@ -99,18 +104,17 @@ class RadiusClusterLayerOptions extends LayerOptions {
   final AnimationOptions clusterZoomAnimation;
 
   RadiusClusterLayerOptions({
-    required this.builder,
+    required this.clusterBuilder,
+    this.controller,
     this.radiusInKm = 100,
     required this.search,
+    this.searchButtonBuilder,
     this.initialCenter,
     this.initialClustersAndMarkers,
     this.minimumSearchDistanceDifferenceInKm,
     this.onError,
-    this.searchIndicatorBorderWidth = 10,
-    Color? loadedBorderColor,
-    Color? loadingBorderColor,
-    Color? errorBorderColor,
-    Color? nextSearchIndicatorBorderColor,
+    SearchCircleStyle? searchCircleStyle,
+    Color? nextSearchIndicatorColor,
     this.onMarkerTap,
     this.popupOptions,
     this.rotate,
@@ -124,13 +128,7 @@ class RadiusClusterLayerOptions extends LayerOptions {
     ),
   })  : assert(initialClustersAndMarkers == null || initialCenter != null,
             'If initialClustersAndMarkers is provided initialCenter is required.'),
-        loadedBorderColor =
-            loadedBorderColor ?? Colors.blueAccent.withOpacity(0.4),
-        loadingBorderColor = loadingBorderColor ?? Colors.grey.withOpacity(0.5),
-        errorBorderColor =
-            errorBorderColor ?? Colors.redAccent.withOpacity(0.4),
-        nextSearchIndicatorColor =
-            nextSearchIndicatorBorderColor ?? Colors.grey.withOpacity(0.2);
+        searchCircleStyle = searchCircleStyle ?? SearchCircleStyle();
 }
 
 abstract class AnimationOptions {
@@ -166,7 +164,7 @@ class AnimationOptionsAnimate extends AnimationOptions {
 
 class PopupOptions {
   /// Used to construct the popup.
-  final PopupBuilder popupBuilder;
+  final PopupBuilder? popupBuilder;
 
   /// If a PopupController is provided it can be used to programmatically show
   /// and hide the popup.
@@ -193,7 +191,7 @@ class PopupOptions {
   final MarkerTapBehavior markerTapBehavior;
 
   PopupOptions({
-    required this.popupBuilder,
+    this.popupBuilder,
     this.popupSnap = PopupSnap.markerTop,
     PopupController? popupController,
     this.popupAnimation,

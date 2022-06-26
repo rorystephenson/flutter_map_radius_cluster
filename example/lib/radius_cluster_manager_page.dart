@@ -86,6 +86,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
             options: RadiusClusterLayerOptions(
               radiusInKm: 100.0,
               search: _search,
+              searchButtonBuilder: _searchButton,
               initialCenter: initialLatLng,
               minimumSearchDistanceDifferenceInKm: 10,
               onError: (error, _) {
@@ -101,7 +102,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
                   child: Text('Popup for marker at: ${marker.point}'),
                 );
               }),
-              builder: (context, clusterData) {
+              clusterBuilder: (context, clusterData) {
                 clusterData as ClusterDataWithCount;
                 return Container(
                   decoration: BoxDecoration(
@@ -120,6 +121,66 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
         ],
       ),
     );
+  }
+
+  Widget _searchButton(
+    BuildContext context,
+    RadiusClusterController controller,
+    RadiusClusterState radiusClusterState,
+  ) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: _buttonFor(
+        radiusClusterState.nextSearchState,
+        controller.searchAtCenter,
+      ),
+    );
+  }
+
+  Widget _buttonFor(RadiusSearchNextSearchState state, VoidCallback search) {
+    switch (state) {
+      case RadiusSearchNextSearchState.ready:
+        return ElevatedButton(
+          onPressed: search,
+          child: const Text('Search'),
+        );
+      case RadiusSearchNextSearchState.loading:
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ElevatedButton(
+            onPressed: null,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  margin: const EdgeInsets.only(right: 8),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white.withOpacity(0.5),
+                  ),
+                ),
+                const Text('Loading'),
+              ],
+            ),
+          ),
+        );
+      case RadiusSearchNextSearchState.error:
+        return ElevatedButton(
+          style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all(Colors.red),
+          ),
+          child: const Text('Search again'),
+          onPressed: search,
+        );
+      case RadiusSearchNextSearchState.disabled:
+        return const ElevatedButton(
+          onPressed: null,
+          child: Text('Search'),
+        );
+    }
   }
 
   Future<Supercluster<Marker>> _search(double radiusInKm, LatLng center) async {

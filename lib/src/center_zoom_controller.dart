@@ -16,8 +16,6 @@ class CenterZoomController {
   AnimationController? _zoomController;
   Tween<CenterZoom>? _tween;
 
-  static const distanceCalculator = Distance();
-
   CenterZoomController({
     required TickerProvider vsync,
     required this.mapState,

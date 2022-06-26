@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
 
-import '../flutter_map_radius_cluster.dart';
+import 'radius_cluster_layer.dart';
+import 'radius_cluster_layer_options.dart';
+import 'state/radius_cluster_scope.dart';
+import 'state/radius_cluster_state.dart';
 
 class RadiusClusterLayerWidget extends StatelessWidget {
   final RadiusClusterLayerOptions options;
@@ -12,6 +15,28 @@ class RadiusClusterLayerWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mapState = MapState.maybeOf(context)!;
-    return RadiusClusterLayer(options, mapState, mapState.onMoved);
+    final state = RadiusClusterState.maybeOf(context);
+
+    if (state != null) return _layer(mapState, state);
+
+    return RadiusClusterScope(
+      initialCenter: options.initialCenter,
+      initialClustersAndMarkers: options.initialClustersAndMarkers,
+      child: Builder(
+        builder: (context) => _layer(
+          mapState,
+          RadiusClusterState.maybeOf(context)!,
+        ),
+      ),
+    );
+  }
+
+  Widget _layer(MapState mapState, RadiusClusterState state) {
+    return RadiusClusterLayer(
+      options: options,
+      mapState: mapState,
+      stream: mapState.onMoved,
+      initialRadiusClusterState: state,
+    );
   }
 }

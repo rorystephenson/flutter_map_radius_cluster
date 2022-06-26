@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map_radius_cluster/flutter_map_radius_cluster.dart';
+import 'package:flutter_map_radius_cluster/src/lat_lng_calc.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'search_circle_painter.dart';
 
 class SearchRadiusIndicator extends StatelessWidget {
-  final LatLng searchCenter;
-  final Distance distanceCalculator;
+  final LatLng center;
   final MapCalculator mapCalculator;
   final double radiusInM;
   final Color borderColor;
@@ -14,8 +14,7 @@ class SearchRadiusIndicator extends StatelessWidget {
 
   const SearchRadiusIndicator({
     super.key,
-    required this.searchCenter,
-    required this.distanceCalculator,
+    required this.center,
     required this.mapCalculator,
     required this.radiusInM,
     required this.borderColor,
@@ -24,11 +23,10 @@ class SearchRadiusIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final centerLatLng = searchCenter;
+    final centerLatLng = center;
     final circlePixel = mapCalculator.getPixelFromPoint(centerLatLng);
 
-    final rightEdgeLatLng =
-        distanceCalculator.offset(centerLatLng, radiusInM, 90);
+    final rightEdgeLatLng = LatLngCalc.offset(centerLatLng, radiusInM, 90);
     final rightEdgePixel = mapCalculator.getPixelFromPoint(rightEdgeLatLng);
     final pixelRadius = rightEdgePixel.x - circlePixel.x;
 

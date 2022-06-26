@@ -7,8 +7,9 @@ class RadiusClusterPlugin extends MapPlugin {
   @override
   Widget createLayer(
       LayerOptions options, MapState mapState, Stream<void> stream) {
-    return RadiusClusterLayer(
-        options as RadiusClusterLayerOptions, mapState, stream);
+    return RadiusClusterLayerWidget(
+      options: options as RadiusClusterLayerOptions,
+    );
   }
 
   @override
