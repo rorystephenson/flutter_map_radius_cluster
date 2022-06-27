@@ -6,52 +6,31 @@ import 'package:provider/provider.dart';
 import '../map_calculator.dart';
 import '../radius_cluster_layer_options.dart';
 import '../state/radius_cluster_state.dart';
-import 'search_circle_style.dart';
-import 'search_radius_indicator.dart';
 
 class FixedOverlay extends StatelessWidget {
-  final MapState mapState;
-  final RadiusClusterController controller;
   final MapCalculator mapCalculator;
-  final SearchButtonBuilder? searchButtonBuilder;
-  final double radiusInKm;
-  final SearchCircleStyle searchCircleBorderStyle;
-  final double? minimumSearchDistanceDifferenceInKm;
+  final RadiusClusterController controller;
+  final FixedOverlayBuilder searchButtonBuilder;
 
   const FixedOverlay({
     Key? key,
-    required this.mapState,
-    required this.controller,
     required this.mapCalculator,
+    required this.controller,
     required this.searchButtonBuilder,
-    required this.radiusInKm,
-    required this.searchCircleBorderStyle,
-    required this.minimumSearchDistanceDifferenceInKm,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final radiusClusterState = context.watch<RadiusClusterState>();
-    final overlay = Stack(
-      children: [
-        if (radiusClusterState.outsidePreviousSearchBoundary)
-          SearchRadiusIndicator(
-            center: mapState.center,
-            mapCalculator: mapCalculator,
-            radiusInM: radiusInKm * 1000,
-            borderColor: searchCircleBorderStyle.nextSearchBorderColor,
-            borderWidth: searchCircleBorderStyle.borderWidth,
-          ),
-        if (searchButtonBuilder != null)
-          searchButtonBuilder!(context, controller, radiusClusterState),
-      ],
+    return _unrotated(
+      searchButtonBuilder(context, controller, radiusClusterState),
     );
-    if (!InteractiveFlag.hasFlag(
-        mapCalculator.mapState.options.interactiveFlags,
-        InteractiveFlag.rotate)) {
-      return overlay;
-    }
+  }
 
+  Widget _unrotated(Widget overlay) {
+    if (mapCalculator.mapState.rotationRad == 0) return overlay;
+
+    final mapState = mapCalculator.mapState;
     final CustomPoint<num> size = mapState.size;
     final sizeChangeDueToRotation =
         size - (mapState.originalSize ?? mapState.size) as CustomPoint<double>;

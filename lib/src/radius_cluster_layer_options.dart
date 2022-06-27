@@ -13,7 +13,7 @@ import 'state/radius_cluster_state.dart';
 typedef ClusterWidgetBuilder = Widget Function(
     BuildContext context, ClusterDataBase? clusterData);
 
-typedef SearchButtonBuilder = Widget Function(
+typedef FixedOverlayBuilder = Widget Function(
   BuildContext context,
   RadiusClusterController controller,
   RadiusClusterState radiusClusterState,
@@ -36,9 +36,9 @@ class RadiusClusterLayerOptions extends LayerOptions {
   final Future<Supercluster<Marker>> Function(double radius, LatLng center)
       search;
 
-  /// An optional builder which allows you to overlay a search button, varying
-  /// the style and behaviour based on the search state.
-  final SearchButtonBuilder? searchButtonBuilder;
+  /// An optional builder which allows you to overlay this layer with widgets
+  /// which will not rotate with the map, usually a search button.
+  final FixedOverlayBuilder? fixedOverlayBuilder;
 
   /// The initial cluster search center. If [initialClustersAndMarkers] is not
   /// provided then a search will be performed immediately.
@@ -108,7 +108,7 @@ class RadiusClusterLayerOptions extends LayerOptions {
     this.controller,
     this.radiusInKm = 100,
     required this.search,
-    this.searchButtonBuilder,
+    this.fixedOverlayBuilder,
     this.initialCenter,
     this.initialClustersAndMarkers,
     this.minimumSearchDistanceDifferenceInKm,
@@ -177,6 +177,10 @@ class PopupOptions {
   /// animation.
   final PopupAnimation? popupAnimation;
 
+  /// An optional builder to use when a Marker is selected.
+  final Widget Function(BuildContext context, Marker marker)?
+      selectedMarkerBuilder;
+
   /// Whether or not the markers rotate counter clockwise to the map rotation,
   /// defaults to false.
   final bool markerRotate;
@@ -195,6 +199,7 @@ class PopupOptions {
     this.popupSnap = PopupSnap.markerTop,
     PopupController? popupController,
     this.popupAnimation,
+    this.selectedMarkerBuilder,
     this.markerRotate = false,
     MarkerTapBehavior? markerTapBehavior,
   })  : markerTapBehavior =

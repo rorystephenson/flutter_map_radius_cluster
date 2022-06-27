@@ -6,12 +6,12 @@ import '../map_calculator.dart';
 import 'search_circle_style.dart';
 import 'search_radius_indicator.dart';
 
-class SearchResultCircleOverlay extends StatelessWidget {
+class SearchCirclesOverlay extends StatelessWidget {
   final MapCalculator mapCalculator;
   final double radiusInM;
   final SearchCircleStyle style;
 
-  const SearchResultCircleOverlay({
+  const SearchCirclesOverlay({
     Key? key,
     required this.mapCalculator,
     required this.radiusInM,
@@ -21,14 +21,26 @@ class SearchResultCircleOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radiusClusterState = context.watch<RadiusClusterState>();
-    if (radiusClusterState.center == null) return const SizedBox.shrink();
 
-    return SearchRadiusIndicator(
-      center: radiusClusterState.center!,
-      mapCalculator: mapCalculator,
-      radiusInM: radiusInM,
-      borderColor: _borderColor(radiusClusterState.searchState),
-      borderWidth: style.borderWidth,
+    return Stack(
+      children: [
+        if (radiusClusterState.center != null)
+          SearchRadiusIndicator(
+            center: radiusClusterState.center!,
+            mapCalculator: mapCalculator,
+            radiusInM: radiusInM,
+            borderColor: _borderColor(radiusClusterState.searchState),
+            borderWidth: style.borderWidth,
+          ),
+        if (radiusClusterState.outsidePreviousSearchBoundary)
+          SearchRadiusIndicator(
+            center: mapCalculator.mapState.center,
+            mapCalculator: mapCalculator,
+            radiusInM: radiusInM,
+            borderColor: style.nextSearchBorderColor,
+            borderWidth: style.borderWidth,
+          ),
+      ],
     );
   }
 

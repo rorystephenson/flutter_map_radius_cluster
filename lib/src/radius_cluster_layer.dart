@@ -8,14 +8,15 @@ import 'package:flutter_map_radius_cluster/src/center_zoom_controller.dart';
 import 'package:flutter_map_radius_cluster/src/cluster_widget.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller.dart';
 import 'package:flutter_map_radius_cluster/src/marker_widget.dart';
-import 'package:flutter_map_radius_cluster/src/overlay/fixed_overlay.dart';
-import 'package:flutter_map_radius_cluster/src/overlay/search_result_circle_overlay.dart';
+import 'package:flutter_map_radius_cluster/src/overlay/search_circles_overlay.dart';
 import 'package:flutter_map_radius_cluster/src/radius_cluster_searcher.dart';
 import 'package:flutter_map_radius_cluster/src/rotate.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 import 'package:supercluster/supercluster.dart';
 
 import 'map_calculator.dart';
+import 'overlay/fixed_overlay.dart';
 import 'radius_cluster_layer_options.dart';
 import 'state/radius_cluster_state.dart';
 import 'state/radius_cluster_state_impl.dart';
@@ -123,44 +124,49 @@ class _RadiusClusterLayerState extends State<RadiusClusterLayer>
       builder: (BuildContext context, _) {
         final popupOptions = widget.options.popupOptions;
 
-        return Stack(
-          children: [
-            ..._buildClustersAndMarkers(),
-            SearchResultCircleOverlay(
-              mapCalculator: _mapCalculator,
-              radiusInM: widget.options.radiusInKm * 1000,
-              style: widget.options.searchCircleStyle,
-            ),
-            FixedOverlay(
-              mapState: widget.mapState,
-              controller: _controller,
-              mapCalculator: _mapCalculator,
-              searchButtonBuilder: widget.options.searchButtonBuilder,
-              radiusInKm: widget.options.radiusInKm,
-              searchCircleBorderStyle: widget.options.searchCircleStyle,
-              minimumSearchDistanceDifferenceInKm:
-                  widget.options.minimumSearchDistanceDifferenceInKm,
-            ),
-            if (popupOptions != null)
-              PopupStateWrapper(
-                builder: (context, popupState) {
-                  _popupState = popupState;
-
-                  return PopupLayer(
-                    mapState: widget.mapState,
-                    popupState: popupState,
-                    popupBuilder: popupOptions.popupBuilder,
-                    popupSnap: popupOptions.popupSnap,
-                    popupController: popupOptions.popupController,
-                    popupAnimation: popupOptions.popupAnimation,
-                    markerRotate: popupOptions.markerRotate,
-                  );
-                },
-              )
-          ],
+        return _wrapWithPopupStateIfPopupsEnabled(
+          (popupState) => Stack(
+            children: [
+              ..._buildClustersAndMarkers(),
+              SearchCirclesOverlay(
+                mapCalculator: _mapCalculator,
+                radiusInM: widget.options.radiusInKm * 1000,
+                style: widget.options.searchCircleStyle,
+              ),
+              if (widget.options.fixedOverlayBuilder != null)
+                FixedOverlay(
+                  controller: _controller,
+                  mapCalculator: _mapCalculator,
+                  searchButtonBuilder: widget.options.fixedOverlayBuilder!,
+                ),
+              if (popupOptions != null)
+                PopupLayer(
+                  mapState: widget.mapState,
+                  popupState: _popupState!,
+                  popupBuilder: popupOptions.popupBuilder,
+                  popupSnap: popupOptions.popupSnap,
+                  popupController: popupOptions.popupController,
+                  popupAnimation: popupOptions.popupAnimation,
+                  markerRotate: popupOptions.markerRotate,
+                )
+            ],
+          ),
         );
       },
     );
+  }
+
+  Widget _wrapWithPopupStateIfPopupsEnabled(
+      Widget Function(PopupState? popupState) builder) {
+    if (widget.options.popupOptions == null) return builder(null);
+
+    return PopupStateWrapper(builder: (context, popupState) {
+      _popupState = popupState;
+      if (widget.options.popupOptions!.selectedMarkerBuilder != null) {
+        context.watch<PopupState>();
+      }
+      return builder(popupState);
+    });
   }
 
   Iterable<Widget> _buildClustersAndMarkers() {
@@ -175,12 +181,12 @@ class _RadiusClusterLayerState extends State<RadiusClusterLayer>
 
   Widget _buildMarkerOrCluster(ClusterOrMapPoint<Marker> clusterOrMapPoint) {
     return clusterOrMapPoint.map(
-      cluster: _buildMarkerClusterLayer,
-      mapPoint: _buildMarkerLayer,
+      cluster: _buildCluster,
+      mapPoint: _buildMarker,
     );
   }
 
-  Widget _buildMarkerClusterLayer(Cluster<Marker> cluster) {
+  Widget _buildCluster(Cluster<Marker> cluster) {
     return ClusterWidget(
       mapCalculator: _mapCalculator,
       cluster: cluster,
@@ -190,12 +196,21 @@ class _RadiusClusterLayerState extends State<RadiusClusterLayer>
     );
   }
 
-  Widget _buildMarkerLayer(MapPoint<Marker> mapPoint) {
+  Widget _buildMarker(MapPoint<Marker> mapPoint) {
     final marker = mapPoint.originalPoint;
+
+    var markerBuilder = marker.builder;
+    final popupOptions = widget.options.popupOptions;
+    if (popupOptions?.selectedMarkerBuilder != null &&
+        _popupState!.selectedMarkers.contains(marker)) {
+      markerBuilder = ((context) =>
+          widget.options.popupOptions!.selectedMarkerBuilder!(context, marker));
+    }
 
     return MarkerWidget(
       mapCalculator: _mapCalculator,
       marker: marker,
+      markerBuilder: markerBuilder,
       onTap: _onMarkerTap(mapPoint),
       size: Size(marker.width, marker.height),
       rotate: marker.rotate != true && widget.options.rotate != true
@@ -238,6 +253,8 @@ class _RadiusClusterLayerState extends State<RadiusClusterLayer>
           popupOptions.popupController,
         );
         _hidePopupIfZoomLessThan = mapPoint.zoom;
+
+        if (popupOptions.selectedMarkerBuilder != null) setState(() {});
       }
 
       widget.options.onMarkerTap?.call(mapPoint.originalPoint);
@@ -247,6 +264,7 @@ class _RadiusClusterLayerState extends State<RadiusClusterLayer>
   void _searchAt(LatLng? center) async {
     center ??= widget.mapState.center;
 
+    widget.options.popupOptions?.popupController.hideAllPopups();
     _radiusClusterStateImpl.initiateSearch(center);
 
     try {
@@ -256,7 +274,6 @@ class _RadiusClusterLayerState extends State<RadiusClusterLayer>
       if (widget.options.onError == null) rethrow;
       widget.options.onError!(error, stackTrace);
     } finally {
-      widget.options.popupOptions?.popupController.hideAllPopups();
       setState(() {});
     }
   }

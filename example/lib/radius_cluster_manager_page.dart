@@ -86,7 +86,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
             options: RadiusClusterLayerOptions(
               radiusInKm: 100.0,
               search: _search,
-              searchButtonBuilder: _searchButton,
+              fixedOverlayBuilder: _searchButton,
               initialCenter: initialLatLng,
               minimumSearchDistanceDifferenceInKm: 10,
               onError: (error, _) {
@@ -94,14 +94,20 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
               },
               clusterWidgetSize: const Size(40, 40),
               anchor: AnchorPos.align(AnchorAlign.center),
-              popupOptions: PopupOptions(popupBuilder: (context, marker) {
-                return Container(
-                  color: Colors.white,
-                  width: 200,
-                  height: 100,
-                  child: Text('Popup for marker at: ${marker.point}'),
-                );
-              }),
+              popupOptions: PopupOptions(
+                popupBuilder: (context, marker) {
+                  return Container(
+                    color: Colors.white,
+                    width: 200,
+                    height: 100,
+                    child: Text('Popup for marker at: ${marker.point}'),
+                  );
+                },
+                selectedMarkerBuilder: (context, marker) => const Icon(
+                  Icons.pin_drop,
+                  color: Colors.red,
+                ),
+              ),
               clusterBuilder: (context, clusterData) {
                 clusterData as ClusterDataWithCount;
                 return Container(

@@ -1,3 +1,10 @@
+## [1.1.0]
+
+- Add selectedMarkerBuilder option to PopupOptions which allows selected Markers
+  to have a different a behaviour/appearance if desired.
+- Fix a bug where the next search indicator was in the wrong position when the
+  map was rotated.
+
 ## [1.0.0]
 
 - Allow popups to be shown outside of the map.
