@@ -21,11 +21,11 @@ class ClusterDataWithCount extends ClusterDataBase {
   }) : _customDataExtractor = innerExtractor;
 
   @override
-  ClusterDataWithCount combine(covariant ClusterDataWithCount point) {
+  ClusterDataWithCount combine(covariant ClusterDataWithCount data) {
     return ClusterDataWithCount._combined(
-      markerCount + point.markerCount,
+      markerCount + data.markerCount,
       innerExtractor: _customDataExtractor,
-      customData: customData?.combine(point.customData!),
+      customData: customData?.combine(data.customData!),
     );
   }
 }

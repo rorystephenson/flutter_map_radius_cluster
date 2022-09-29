@@ -10,7 +10,7 @@ class RadiusClusterLayerPage extends StatefulWidget {
   const RadiusClusterLayerPage({Key? key}) : super(key: key);
 
   @override
-  _RadiusClusterLayerPageState createState() => _RadiusClusterLayerPageState();
+  State<RadiusClusterLayerPage> createState() => _RadiusClusterLayerPageState();
 }
 
 class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
@@ -73,56 +73,51 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
               (maxLatLng.longitude + minLatLng.longitude) / 2),
           zoom: 6,
           maxZoom: 15,
-          plugins: [RadiusClusterPlugin()],
         ),
         children: <Widget>[
-          TileLayerWidget(
-            options: TileLayerOptions(
-              urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-              subdomains: ['a', 'b', 'c'],
-            ),
+          TileLayer(
+            urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            subdomains: const ['a', 'b', 'c'],
           ),
-          RadiusClusterLayerWidget(
-            options: RadiusClusterLayerOptions(
-              radiusInKm: 100.0,
-              search: _search,
-              fixedOverlayBuilder: _searchButton,
-              initialCenter: initialLatLng,
-              minimumSearchDistanceDifferenceInKm: 10,
-              onError: (error, _) {
-                debugPrint('Captured search error: $error');
-              },
-              clusterWidgetSize: const Size(40, 40),
-              anchor: AnchorPos.align(AnchorAlign.center),
-              popupOptions: PopupOptions(
-                popupBuilder: (context, marker) {
-                  return Container(
-                    color: Colors.white,
-                    width: 200,
-                    height: 100,
-                    child: Text('Popup for marker at: ${marker.point}'),
-                  );
-                },
-                selectedMarkerBuilder: (context, marker) => const Icon(
-                  Icons.pin_drop,
-                  color: Colors.red,
-                ),
-              ),
-              clusterBuilder: (context, clusterData) {
-                clusterData as ClusterDataWithCount;
+          RadiusClusterLayer(
+            radiusInKm: 100.0,
+            search: _search,
+            fixedOverlayBuilder: _searchButton,
+            initialCenter: initialLatLng,
+            minimumSearchDistanceDifferenceInKm: 10,
+            onError: (error, _) {
+              debugPrint('Captured search error: $error');
+            },
+            clusterWidgetSize: const Size(40, 40),
+            anchor: AnchorPos.align(AnchorAlign.center),
+            popupOptions: PopupOptions(
+              popupBuilder: (context, marker) {
                 return Container(
-                  decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20.0),
-                      color: Colors.blue),
-                  child: Center(
-                    child: Text(
-                      clusterData.markerCount.toString(),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
+                  color: Colors.white,
+                  width: 200,
+                  height: 100,
+                  child: Text('Popup for marker at: ${marker.point}'),
                 );
               },
+              selectedMarkerBuilder: (context, marker) => const Icon(
+                Icons.pin_drop,
+                color: Colors.red,
+              ),
             ),
+            clusterBuilder: (context, clusterData) {
+              clusterData as ClusterDataWithCount;
+              return Container(
+                decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20.0),
+                    color: Colors.blue),
+                child: Center(
+                  child: Text(
+                    clusterData.markerCount.toString(),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -178,8 +173,8 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
           style: ButtonStyle(
             backgroundColor: MaterialStateProperty.all(Colors.red),
           ),
-          child: const Text('Search again'),
           onPressed: search,
+          child: const Text('Search again'),
         );
       case RadiusSearchNextSearchState.disabled:
         return const ElevatedButton(
@@ -189,7 +184,8 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
     }
   }
 
-  Future<Supercluster<Marker>> _search(double radiusInKm, LatLng center) async {
+  Future<SuperclusterImmutable<Marker>> _search(
+      double radiusInKm, LatLng center) async {
     await (Future.delayed(const Duration(seconds: 1)));
     _errorCursor = (_errorCursor + 1) % 3;
     if (_errorCursor == 0) throw 'Simulated error';
@@ -200,11 +196,10 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
       points.add(_kdbush.points[index]);
     }
 
-    return Supercluster<Marker>(
-      points: points,
+    return SuperclusterImmutable<Marker>(
       getX: (m) => m.point.longitude,
       getY: (m) => m.point.latitude,
       extractClusterData: (marker) => ClusterDataWithCount(marker),
-    );
+    )..load(points);
   }
 }

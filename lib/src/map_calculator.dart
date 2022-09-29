@@ -6,7 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:supercluster/supercluster.dart';
 
 class MapCalculator {
-  final MapState mapState;
+  final FlutterMapState mapState;
   final Size clusterWidgetSize;
   final AnchorPos? clusterAnchorPos;
   final CustomPoint _boundsPixelPadding;
@@ -23,7 +23,7 @@ class MapCalculator {
   CustomPoint<num> getPixelFromPoint(LatLng point) {
     final pos = mapState.project(point);
     return pos.multiplyBy(mapState.getZoomScale(mapState.zoom, mapState.zoom)) -
-        mapState.getPixelOrigin();
+        mapState.pixelOrigin;
   }
 
   LatLngBounds paddedMapBounds() {
@@ -34,11 +34,11 @@ class MapCalculator {
     );
   }
 
-  LatLng clusterPoint(Cluster<Marker> cluster) {
+  LatLng clusterPoint(LayerCluster<Marker> cluster) {
     return LatLng(cluster.latitude, cluster.longitude);
   }
 
-  Point<double> removeClusterAnchor(CustomPoint pos, Cluster<Marker> cluster) {
+  Point<double> removeClusterAnchor(CustomPoint pos, LayerCluster<Marker> cluster) {
     final anchor = Anchor.forPos(
       clusterAnchorPos,
       clusterWidgetSize.width,

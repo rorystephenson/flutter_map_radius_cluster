@@ -9,14 +9,14 @@ import 'radius_cluster_state_impl.dart';
 abstract class RadiusClusterState with ChangeNotifier {
   factory RadiusClusterState({
     LatLng? initialCenter,
-    Supercluster<Marker>? initialClustersAndMarkers,
+    SuperclusterImmutable<Marker>? initialSupercluster,
   }) = RadiusClusterStateImpl;
 
   bool get error;
 
   LatLng? get center;
 
-  Supercluster<Marker>? get clustersAndMarkers;
+  Supercluster<Marker>? get supercluster;
 
   RadiusSearchState get searchState;
 

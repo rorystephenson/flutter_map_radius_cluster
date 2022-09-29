@@ -9,7 +9,7 @@ import 'radius_cluster_state.dart';
 
 class RadiusClusterScope extends StatelessWidget {
   final LatLng? initialCenter;
-  final Supercluster<Marker>? initialClustersAndMarkers;
+  final SuperclusterImmutable<Marker>? initialClustersAndMarkers;
   final Widget child;
 
   const RadiusClusterScope({
@@ -24,7 +24,7 @@ class RadiusClusterScope extends StatelessWidget {
     return ChangeNotifierProvider<RadiusClusterState>(
       create: (context) => RadiusClusterState(
         initialCenter: initialCenter,
-        initialClustersAndMarkers: initialClustersAndMarkers,
+        initialSupercluster: initialClustersAndMarkers,
       ),
       child: child,
     );

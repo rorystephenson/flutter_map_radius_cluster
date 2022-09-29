@@ -1,3 +1,8 @@
+## [2.0.0]
+
+- BREAKING: `flutter_map` 3.0.0
+- BREAKING: `supercluster` 2.0.0
+
 ## [1.1.0]
 
 - Add selectedMarkerBuilder option to PopupOptions which allows selected Markers

@@ -2,14 +2,14 @@ import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_map/plugin_api.dart';
-import 'package:flutter_map_radius_cluster/flutter_map_radius_cluster.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'center_zoom_tween.dart';
+import 'options/animation_options.dart';
 
 class CenterZoomController {
   final TickerProvider _vsync;
-  final MapState mapState;
+  final FlutterMapState mapState;
 
   CurvedAnimation? _animation;
   double? _velocity;

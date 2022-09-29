@@ -1,292 +1,177 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
-import 'package:flutter_map_marker_popup/extension_api.dart';
-import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
-import 'package:flutter_map_radius_cluster/src/center_zoom_controller.dart';
-import 'package:flutter_map_radius_cluster/src/cluster_widget.dart';
-import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller.dart';
-import 'package:flutter_map_radius_cluster/src/marker_widget.dart';
-import 'package:flutter_map_radius_cluster/src/overlay/search_circles_overlay.dart';
-import 'package:flutter_map_radius_cluster/src/radius_cluster_searcher.dart';
-import 'package:flutter_map_radius_cluster/src/rotate.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
 import 'package:supercluster/supercluster.dart';
 
-import 'map_calculator.dart';
-import 'overlay/fixed_overlay.dart';
-import 'radius_cluster_layer_options.dart';
+import 'controller/radius_cluster_controller.dart';
+import 'options/animation_options.dart';
+import 'options/popup_options.dart';
+import 'overlay/search_circle_style.dart';
+import 'radius_cluster_layer_impl.dart';
+import 'state/radius_cluster_scope.dart';
 import 'state/radius_cluster_state.dart';
-import 'state/radius_cluster_state_impl.dart';
 
-class RadiusClusterLayer extends StatefulWidget {
-  final RadiusClusterLayerOptions options;
-  final MapState mapState;
-  final RadiusClusterState initialRadiusClusterState;
+typedef ClusterWidgetBuilder = Widget Function(
+    BuildContext context, ClusterDataBase? clusterData);
 
-  final Stream<void> stream;
+typedef FixedOverlayBuilder = Widget Function(
+  BuildContext context,
+  RadiusClusterController controller,
+  RadiusClusterState radiusClusterState,
+);
 
-  const RadiusClusterLayer({
+class RadiusClusterLayer extends StatelessWidget {
+  /// The function which returns the clusters and markers for the given radius
+  /// and search center. Do not handle errors that occur as they are captured
+  /// and used to determine the button and search circle indicator states. Use
+  /// the [onError] callback if you wish to log/otherwise react to errors.
+  final Future<SuperclusterImmutable<Marker>> Function(
+      double radius, LatLng center) search;
+
+  /// Cluster builder
+  final ClusterWidgetBuilder clusterBuilder;
+
+  /// Controller for triggering searches.
+  final RadiusClusterController? controller;
+
+  /// The cluster search radius
+  final double radiusInKm;
+
+  /// An optional builder which allows you to overlay this layer with widgets
+  /// which will not rotate with the map, usually a search button.
+  final FixedOverlayBuilder? fixedOverlayBuilder;
+
+  /// The initial cluster search center. If [initialClustersAndMarkers] is not
+  /// provided then a search will be performed immediately.
+  final LatLng? initialCenter;
+
+  /// The initial clusters and markers to display on the map. If this is
+  /// non-null then [initialCenter] must be provided.
+  final SuperclusterImmutable<Marker>? initialClustersAndMarkers;
+
+  /// The minimum distance between searches. If the last search was successful
+  /// and the last search center point is less than this distance from the
+  /// current map center then the search button will be disabled and the next
+  /// search indicator will be hidden.
+  final double? minimumSearchDistanceDifferenceInKm;
+
+  /// An optional callback to log/report errors that occur in the Future
+  /// returned by the [search] callback.
+  final Function(dynamic error, StackTrace stackTrace)? onError;
+
+  /// The style of the search circle that indicates the state of the most recent
+  /// search.
+  final SearchCircleStyle searchCircleStyle;
+
+  /// Function to call when a Marker is tapped
+  final void Function(Marker)? onMarkerTap;
+
+  /// Popup's options that show when tapping markers or via the PopupController.
+  final PopupOptions? popupOptions;
+
+  /// If true markers will be counter rotated to the map rotation
+  final bool? rotate;
+
+  /// The origin of the coordinate system (relative to the upper left corner of
+  /// this render object) in which to apply the matrix.
+  ///
+  /// Setting an origin is equivalent to conjugating the transform matrix by a
+  /// translation. This property is provided just for convenience.
+  final Offset? rotateOrigin;
+
+  /// The alignment of the origin, relative to the size of the box.
+  ///
+  /// This is equivalent to setting an origin based on the size of the box.
+  /// If it is specified at the same time as the [rotateOrigin], both are applied.
+  ///
+  /// An [AlignmentDirectional.centerStart] value is the same as an [Alignment]
+  /// whose [Alignment.x] value is `-1.0` if [Directionality.of] returns
+  /// [TextDirection.ltr], and `1.0` if [Directionality.of] returns
+  /// [TextDirection.rtl].	 Similarly [AlignmentDirectional.centerEnd] is the
+  /// same as an [Alignment] whose [Alignment.x] value is `1.0` if
+  /// [Directionality.of] returns	 [TextDirection.ltr], and `-1.0` if
+  /// [Directionality.of] returns [TextDirection.rtl].
+  final AlignmentGeometry? rotateAlignment;
+
+  /// Cluster size
+  final Size clusterWidgetSize;
+
+  /// Cluster anchor
+  final AnchorPos? anchor;
+
+  /// Control cluster zooming (triggered by cluster tap) animation. Use
+  /// [AnimationOptions.none] to disable animation. See
+  ///  [AnimationOptions.animate] for more information on animation options.
+  final AnimationOptions clusterZoomAnimation;
+
+  RadiusClusterLayer({
     Key? key,
-    required this.options,
-    required this.mapState,
-    required this.stream,
-    required this.initialRadiusClusterState,
-  }) : super(key: key);
-
-  @override
-  State<RadiusClusterLayer> createState() => _RadiusClusterLayerState();
-}
-
-class _RadiusClusterLayerState extends State<RadiusClusterLayer>
-    with TickerProviderStateMixin {
-  late final RadiusClusterController _controller;
-  late final bool _shouldDisposeController;
-  late final StreamSubscription<LatLng?> _controllerSubscription;
-  late final RadiusClusterStateImpl _radiusClusterStateImpl;
-  late final MapCalculator _mapCalculator;
-  late final RadiusClusterSearcher _searcher;
-
-  late CenterZoomController _centerZoomController;
-  StreamSubscription<void>? _movementStreamSubscription;
-  int? _hidePopupIfZoomLessThan;
-
-  PopupState? _popupState;
-
-  _RadiusClusterLayerState();
-
-  @override
-  void initState() {
-    super.initState();
-
-    _mapCalculator = MapCalculator(
-      mapState: widget.mapState,
-      clusterWidgetSize: widget.options.clusterWidgetSize,
-      clusterAnchorPos: widget.options.anchor,
-    );
-
-    _centerZoomController = CenterZoomController(
-      vsync: this,
-      mapState: widget.mapState,
-      animationOptions: widget.options.clusterZoomAnimation,
-    );
-
-    _searcher = RadiusClusterSearcher(
-      mapState: widget.mapState,
-      minimumSearchDistanceDifferenceInKm:
-          widget.options.minimumSearchDistanceDifferenceInKm,
-      radiusInKm: widget.options.radiusInKm,
-      search: widget.options.search,
-    );
-
-    _radiusClusterStateImpl =
-        widget.initialRadiusClusterState as RadiusClusterStateImpl;
-
-    _controller = widget.options.controller ?? RadiusClusterController();
-    _shouldDisposeController = widget.options.controller == null;
-    _controllerSubscription = _controller.searchStream.listen(_searchAt);
-
-    _movementStreamSubscription = widget.stream.listen(_onMove);
-
-    if (_radiusClusterStateImpl.center != null &&
-        _radiusClusterStateImpl.clustersAndMarkers == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _searchAt(_radiusClusterStateImpl.center);
-      });
-    }
-  }
-
-  @override
-  void didUpdateWidget(RadiusClusterLayer oldWidget) {
-    if (oldWidget.options.clusterZoomAnimation !=
-        widget.options.clusterZoomAnimation) {
-      _centerZoomController.animationOptions =
-          widget.options.clusterZoomAnimation;
-    }
-    super.didUpdateWidget(oldWidget);
-  }
-
-  @override
-  void dispose() {
-    if (_shouldDisposeController) _controller.dispose();
-    _controllerSubscription.cancel();
-    _movementStreamSubscription?.cancel();
-    _centerZoomController.dispose();
-    super.dispose();
-  }
+    required this.search,
+    required this.clusterBuilder,
+    this.controller,
+    this.radiusInKm = 100,
+    this.fixedOverlayBuilder,
+    this.initialCenter,
+    this.initialClustersAndMarkers,
+    this.minimumSearchDistanceDifferenceInKm,
+    this.onError,
+    SearchCircleStyle? searchCircleStyle,
+    Color? nextSearchIndicatorColor,
+    this.onMarkerTap,
+    this.popupOptions,
+    this.rotate,
+    this.rotateOrigin,
+    this.rotateAlignment,
+    this.clusterWidgetSize = const Size(30, 30),
+    this.anchor,
+    this.clusterZoomAnimation = const AnimationOptions.animate(
+      curve: Curves.linear,
+      velocity: 1,
+    ),
+  })  : assert(initialClustersAndMarkers == null || initialCenter != null,
+            'If initialClustersAndMarkers is provided initialCenter is required.'),
+        searchCircleStyle = searchCircleStyle ?? SearchCircleStyle(),
+        super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<void>(
-      stream: widget.stream, // a Stream<void> or null
-      builder: (BuildContext context, _) {
-        final popupOptions = widget.options.popupOptions;
+    final mapState = FlutterMapState.maybeOf(context)!;
+    final state = RadiusClusterState.maybeOf(context);
 
-        return _wrapWithPopupStateIfPopupsEnabled(
-          (popupState) => Stack(
-            children: [
-              ..._buildClustersAndMarkers(),
-              SearchCirclesOverlay(
-                mapCalculator: _mapCalculator,
-                radiusInM: widget.options.radiusInKm * 1000,
-                style: widget.options.searchCircleStyle,
-              ),
-              if (widget.options.fixedOverlayBuilder != null)
-                FixedOverlay(
-                  controller: _controller,
-                  mapCalculator: _mapCalculator,
-                  searchButtonBuilder: widget.options.fixedOverlayBuilder!,
-                ),
-              if (popupOptions != null)
-                PopupLayer(
-                  mapState: widget.mapState,
-                  popupState: _popupState!,
-                  popupBuilder: popupOptions.popupBuilder,
-                  popupSnap: popupOptions.popupSnap,
-                  popupController: popupOptions.popupController,
-                  popupAnimation: popupOptions.popupAnimation,
-                  markerRotate: popupOptions.markerRotate,
-                )
-            ],
-          ),
-        );
-      },
-    );
-  }
+    if (state != null) return _layer(mapState, state);
 
-  Widget _wrapWithPopupStateIfPopupsEnabled(
-      Widget Function(PopupState? popupState) builder) {
-    if (widget.options.popupOptions == null) return builder(null);
-
-    return PopupStateWrapper(builder: (context, popupState) {
-      _popupState = popupState;
-      if (widget.options.popupOptions!.selectedMarkerBuilder != null) {
-        context.watch<PopupState>();
-      }
-      return builder(popupState);
-    });
-  }
-
-  Iterable<Widget> _buildClustersAndMarkers() {
-    final paddedBounds = _mapCalculator.paddedMapBounds();
-    return _radiusClusterStateImpl
-        .getClustersAndPointsIn(
-          paddedBounds,
-          widget.mapState.zoom.ceil(),
-        )
-        .map(_buildMarkerOrCluster);
-  }
-
-  Widget _buildMarkerOrCluster(ClusterOrMapPoint<Marker> clusterOrMapPoint) {
-    return clusterOrMapPoint.map(
-      cluster: _buildCluster,
-      mapPoint: _buildMarker,
-    );
-  }
-
-  Widget _buildCluster(Cluster<Marker> cluster) {
-    return ClusterWidget(
-      mapCalculator: _mapCalculator,
-      cluster: cluster,
-      builder: widget.options.clusterBuilder,
-      onTap: _onClusterTap(cluster),
-      size: widget.options.clusterWidgetSize,
-    );
-  }
-
-  Widget _buildMarker(MapPoint<Marker> mapPoint) {
-    final marker = mapPoint.originalPoint;
-
-    var markerBuilder = marker.builder;
-    final popupOptions = widget.options.popupOptions;
-    if (popupOptions?.selectedMarkerBuilder != null &&
-        _popupState!.selectedMarkers.contains(marker)) {
-      markerBuilder = ((context) =>
-          widget.options.popupOptions!.selectedMarkerBuilder!(context, marker));
-    }
-
-    return MarkerWidget(
-      mapCalculator: _mapCalculator,
-      marker: marker,
-      markerBuilder: markerBuilder,
-      onTap: _onMarkerTap(mapPoint),
-      size: Size(marker.width, marker.height),
-      rotate: marker.rotate != true && widget.options.rotate != true
-          ? null
-          : Rotate(
-              angle: -widget.mapState.rotationRad,
-              origin: marker.rotateOrigin ?? widget.options.rotateOrigin,
-              alignment:
-                  marker.rotateAlignment ?? widget.options.rotateAlignment,
-            ),
-    );
-  }
-
-  VoidCallback _onClusterTap(Cluster<Marker> cluster) {
-    return () {
-      final clustersAndMarkers = _radiusClusterStateImpl.clustersAndMarkers;
-      if (clustersAndMarkers == null) throw 'No clusters loaded';
-
-      final targetZoom =
-          clustersAndMarkers.getClusterExpansionZoom(cluster.id).toDouble();
-
-      _centerZoomController.moveTo(
-        CenterZoom(
-          center: LatLng(cluster.latitude, cluster.longitude),
-          zoom: targetZoom,
+    return RadiusClusterScope(
+      initialCenter: initialCenter,
+      initialClustersAndMarkers: initialClustersAndMarkers,
+      child: Builder(
+        builder: (context) => _layer(
+          mapState,
+          RadiusClusterState.maybeOf(context)!,
         ),
-      );
-    };
+      ),
+    );
   }
 
-  VoidCallback _onMarkerTap(MapPoint<Marker> mapPoint) {
-    return () {
-      if (widget.options.popupOptions != null) {
-        assert(_popupState != null);
-
-        final popupOptions = widget.options.popupOptions!;
-        popupOptions.markerTapBehavior.apply(
-          mapPoint.originalPoint,
-          _popupState!,
-          popupOptions.popupController,
-        );
-        _hidePopupIfZoomLessThan = mapPoint.zoom;
-
-        if (popupOptions.selectedMarkerBuilder != null) setState(() {});
-      }
-
-      widget.options.onMarkerTap?.call(mapPoint.originalPoint);
-    };
-  }
-
-  void _searchAt(LatLng? center) async {
-    center ??= widget.mapState.center;
-
-    widget.options.popupOptions?.popupController.hideAllPopups();
-    _radiusClusterStateImpl.initiateSearch(center);
-
-    try {
-      _radiusClusterStateImpl.setSearchResult(await _searcher.search(center));
-    } catch (error, stackTrace) {
-      _radiusClusterStateImpl.setSearchErrored();
-      if (widget.options.onError == null) rethrow;
-      widget.options.onError!(error, stackTrace);
-    } finally {
-      setState(() {});
-    }
-  }
-
-  void _onMove(void _) {
-    if (_hidePopupIfZoomLessThan != null &&
-        widget.mapState.zoom < _hidePopupIfZoomLessThan!) {
-      debugPrint('hiding all popups');
-      widget.options.popupOptions?.popupController.hideAllPopups();
-      _hidePopupIfZoomLessThan = null;
-    }
-
-    _radiusClusterStateImpl.outsidePreviousSearchBoundary =
-        _searcher.outsidePreviousSearchBoundary(_radiusClusterStateImpl.center);
+  Widget _layer(FlutterMapState mapState, RadiusClusterState state) {
+    return RadiusClusterLayerImpl(
+      mapState: mapState,
+      initialRadiusClusterState: state,
+      search: search,
+      clusterBuilder: clusterBuilder,
+      controller: controller,
+      radiusInKm: radiusInKm,
+      fixedOverlayBuilder: fixedOverlayBuilder,
+      minimumSearchDistanceDifferenceInKm: minimumSearchDistanceDifferenceInKm,
+      onError: onError,
+      searchCircleStyle: searchCircleStyle,
+      onMarkerTap: onMarkerTap,
+      popupOptions: popupOptions,
+      rotate: rotate,
+      rotateOrigin: rotateOrigin,
+      rotateAlignment: rotateAlignment,
+      clusterWidgetSize: clusterWidgetSize,
+      anchor: anchor,
+      clusterZoomAnimation: clusterZoomAnimation,
+    );
   }
 }

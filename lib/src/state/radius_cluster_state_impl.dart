@@ -6,7 +6,7 @@ import 'package:latlong2/latlong.dart';
 class RadiusClusterStateImpl with ChangeNotifier implements RadiusClusterState {
   bool _lastSearchErrored = false;
   LatLng? _searchCenter;
-  Supercluster<Marker>? _clustersAndMarkers;
+  SuperclusterImmutable<Marker>? _supercluster;
 
   @override
   bool get error => _lastSearchErrored;
@@ -15,25 +15,25 @@ class RadiusClusterStateImpl with ChangeNotifier implements RadiusClusterState {
   LatLng? get center => _searchCenter;
 
   @override
-  Supercluster<Marker>? get clustersAndMarkers => _clustersAndMarkers;
+  SuperclusterImmutable<Marker>? get supercluster => _supercluster;
 
   bool _outsidePreviousSearchBoundary = false;
 
   RadiusClusterStateImpl({
     LatLng? initialCenter,
-    Supercluster<Marker>? initialClustersAndMarkers,
+    SuperclusterImmutable<Marker>? initialSupercluster,
   })  : _searchCenter = initialCenter,
-        _clustersAndMarkers = initialClustersAndMarkers;
+        _supercluster = initialSupercluster;
 
   void initiateSearch(LatLng center) {
     _lastSearchErrored = false;
     _searchCenter = center;
-    _clustersAndMarkers = null;
+    _supercluster = null;
     notifyListeners();
   }
 
-  void setSearchResult(Supercluster<Marker> clustersAndMarkers) {
-    _clustersAndMarkers = clustersAndMarkers;
+  void setSearchResult(SuperclusterImmutable<Marker> supercluster) {
+    _supercluster = supercluster;
     notifyListeners();
   }
 
@@ -42,11 +42,11 @@ class RadiusClusterStateImpl with ChangeNotifier implements RadiusClusterState {
     notifyListeners();
   }
 
-  List<ClusterOrMapPoint<Marker>> getClustersAndPointsIn(
+  List<ImmutableLayerElement<Marker>> getLayerElementsIn(
       LatLngBounds bounds, int zoom) {
-    if (_clustersAndMarkers == null) return [];
+    if (_supercluster == null) return [];
 
-    return _clustersAndMarkers!.getClustersAndPoints(
+    return _supercluster!.search(
       bounds.west,
       bounds.south,
       bounds.east,
@@ -57,7 +57,7 @@ class RadiusClusterStateImpl with ChangeNotifier implements RadiusClusterState {
 
   @override
   RadiusSearchState get searchState {
-    if (_clustersAndMarkers != null) {
+    if (_supercluster != null) {
       return RadiusSearchState.complete;
     } else if (_lastSearchErrored == true) {
       return RadiusSearchState.error;
