@@ -1,3 +1,9 @@
+## [2.1.0]
+
+- DEPENDENCY: `flutter_map` 3.1.0
+- DEPENDENCY: `supercluster` 2.1.1
+- BUGFIX: Don't hide popups too early when zooming out.
+
 ## [2.0.0]
 
 - BREAKING: `flutter_map` 3.0.0

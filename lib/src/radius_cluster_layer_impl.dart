@@ -307,7 +307,7 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
 
   void _onMove(void _) {
     if (_hidePopupIfZoomLessThan != null &&
-        widget.mapState.zoom < _hidePopupIfZoomLessThan!) {
+        widget.mapState.zoom.ceil() < _hidePopupIfZoomLessThan!) {
       widget.popupOptions?.popupController.hideAllPopups();
       _hidePopupIfZoomLessThan = null;
     }
