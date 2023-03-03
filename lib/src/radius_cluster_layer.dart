@@ -6,7 +6,7 @@ import 'package:supercluster/supercluster.dart';
 import 'controller/radius_cluster_controller.dart';
 import 'options/animation_options.dart';
 import 'options/popup_options.dart';
-import 'overlay/search_circle_style.dart';
+import 'options/search_circle_options.dart';
 import 'radius_cluster_layer_impl.dart';
 import 'state/radius_cluster_scope.dart';
 import 'state/radius_cluster_state.dart';
@@ -59,9 +59,8 @@ class RadiusClusterLayer extends StatelessWidget {
   /// returned by the [search] callback.
   final Function(dynamic error, StackTrace stackTrace)? onError;
 
-  /// The style of the search circle that indicates the state of the most recent
-  /// search.
-  final SearchCircleStyle searchCircleStyle;
+  /// The options for search circle in its various states.
+  final SearchCircleOptions searchCircleOptions;
 
   /// Function to call when a Marker is tapped
   final void Function(Marker)? onMarkerTap;
@@ -115,7 +114,7 @@ class RadiusClusterLayer extends StatelessWidget {
     this.initialClustersAndMarkers,
     this.minimumSearchDistanceDifferenceInKm,
     this.onError,
-    SearchCircleStyle? searchCircleStyle,
+    SearchCircleOptions? searchCircleOptions,
     Color? nextSearchIndicatorColor,
     this.onMarkerTap,
     this.popupOptions,
@@ -130,7 +129,7 @@ class RadiusClusterLayer extends StatelessWidget {
     ),
   })  : assert(initialClustersAndMarkers == null || initialCenter != null,
             'If initialClustersAndMarkers is provided initialCenter is required.'),
-        searchCircleStyle = searchCircleStyle ?? SearchCircleStyle(),
+        searchCircleOptions = searchCircleOptions ?? SearchCircleOptions(),
         super(key: key);
 
   @override
@@ -163,7 +162,7 @@ class RadiusClusterLayer extends StatelessWidget {
       fixedOverlayBuilder: fixedOverlayBuilder,
       minimumSearchDistanceDifferenceInKm: minimumSearchDistanceDifferenceInKm,
       onError: onError,
-      searchCircleStyle: searchCircleStyle,
+      searchCircleOptions: searchCircleOptions,
       onMarkerTap: onMarkerTap,
       popupOptions: popupOptions,
       rotate: rotate,

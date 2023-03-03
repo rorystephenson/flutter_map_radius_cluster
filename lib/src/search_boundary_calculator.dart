@@ -1,33 +1,21 @@
 import 'package:flutter_map/plugin_api.dart';
+import 'package:flutter_map_radius_cluster/src/lat_lng_calc.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:supercluster/supercluster.dart';
 
-import 'lat_lng_calc.dart';
-
-class RadiusClusterSearcher {
+class SearchBoundaryCalculator {
   final FlutterMapState mapState;
   final double radiusInKm;
   final double? minimumSearchDistanceDifferenceInKm;
-  final Future<SuperclusterImmutable<Marker>> Function(double radius, LatLng center)
-      _search;
 
-  RadiusClusterSearcher({
+  SearchBoundaryCalculator({
     required this.mapState,
     required this.radiusInKm,
     required this.minimumSearchDistanceDifferenceInKm,
-    required Future<SuperclusterImmutable<Marker>> Function(double radius, LatLng center)
-        search,
-  }) : _search = search;
-
-  LatLng get mapCenter => mapState.center;
-
-  Future<SuperclusterImmutable<Marker>> search(LatLng latLng) {
-    return _search(radiusInKm, latLng);
-  }
+  });
 
   bool outsidePreviousSearchBoundary(LatLng? previousSearchCenter) {
     if (previousSearchCenter == null) return true;
-   
+
     if (minimumSearchDistanceDifferenceInKm != null) {
       final distanceFromPreviousSearch = LatLngCalc.distanceInM(
         previousSearchCenter,

@@ -1,21 +1,22 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_map_radius_cluster/src/options/search_circle_options.dart';
+import 'package:flutter_map_radius_cluster/src/options/search_circle_style.dart';
 import 'package:flutter_map_radius_cluster/src/state/radius_cluster_state.dart';
 import 'package:provider/provider.dart';
 
 import '../map_calculator.dart';
-import 'search_circle_style.dart';
 import 'search_radius_indicator.dart';
 
 class SearchCirclesOverlay extends StatelessWidget {
   final MapCalculator mapCalculator;
   final double radiusInM;
-  final SearchCircleStyle style;
+  final SearchCircleOptions options;
 
   const SearchCirclesOverlay({
     Key? key,
     required this.mapCalculator,
     required this.radiusInM,
-    required this.style,
+    required this.options,
   }) : super(key: key);
 
   @override
@@ -29,29 +30,28 @@ class SearchCirclesOverlay extends StatelessWidget {
             center: radiusClusterState.center!,
             mapCalculator: mapCalculator,
             radiusInM: radiusInM,
-            borderColor: _borderColor(radiusClusterState.searchState),
-            borderWidth: style.borderWidth,
+            style: _searchCircleStyle(radiusClusterState.searchState),
           ),
-        if (radiusClusterState.outsidePreviousSearchBoundary)
+        if (radiusClusterState.searchState != RadiusSearchState.loading &&
+            radiusClusterState.outsidePreviousSearchBoundary)
           SearchRadiusIndicator(
             center: mapCalculator.mapState.center,
             mapCalculator: mapCalculator,
             radiusInM: radiusInM,
-            borderColor: style.nextSearchBorderColor,
-            borderWidth: style.borderWidth,
+            style: options.nextSearchCircleStyle,
           ),
       ],
     );
   }
 
-  Color _borderColor(RadiusSearchState searchState) {
+  SearchCircleStyle _searchCircleStyle(RadiusSearchState searchState) {
     switch (searchState) {
       case RadiusSearchState.complete:
-        return style.loadedBorderColor;
+        return options.loadedCircleStyle;
       case RadiusSearchState.loading:
-        return style.loadingBorderColor;
+        return options.loadingCircleStyle;
       case RadiusSearchState.error:
-        return style.errorBorderColor;
+        return options.errorCircleStyle;
       case RadiusSearchState.noSearchPerformed:
         throw 'Should not be drawing a circle if no search was performed';
     }

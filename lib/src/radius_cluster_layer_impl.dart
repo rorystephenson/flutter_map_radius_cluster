@@ -9,7 +9,6 @@ import 'package:flutter_map_radius_cluster/src/cluster_widget.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller.dart';
 import 'package:flutter_map_radius_cluster/src/marker_widget.dart';
 import 'package:flutter_map_radius_cluster/src/overlay/search_circles_overlay.dart';
-import 'package:flutter_map_radius_cluster/src/radius_cluster_searcher.dart';
 import 'package:flutter_map_radius_cluster/src/rotate.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -18,11 +17,12 @@ import 'package:supercluster/supercluster.dart';
 import 'map_calculator.dart';
 import 'options/animation_options.dart';
 import 'options/popup_options.dart';
+import 'options/search_circle_options.dart';
 import 'overlay/fixed_overlay.dart';
-import 'overlay/search_circle_style.dart';
 import 'radius_cluster_layer.dart';
 import 'state/radius_cluster_state.dart';
 import 'state/radius_cluster_state_impl.dart';
+import 'search_boundary_calculator.dart';
 
 class RadiusClusterLayerImpl extends StatefulWidget {
   final FlutterMapState mapState;
@@ -37,7 +37,7 @@ class RadiusClusterLayerImpl extends StatefulWidget {
   final FixedOverlayBuilder? fixedOverlayBuilder;
   final double? minimumSearchDistanceDifferenceInKm;
   final Function(dynamic error, StackTrace stackTrace)? onError;
-  final SearchCircleStyle searchCircleStyle;
+  final SearchCircleOptions searchCircleOptions;
   final void Function(Marker)? onMarkerTap;
   final PopupOptions? popupOptions;
   final bool? rotate;
@@ -58,7 +58,7 @@ class RadiusClusterLayerImpl extends StatefulWidget {
     this.fixedOverlayBuilder,
     this.minimumSearchDistanceDifferenceInKm,
     this.onError,
-    required this.searchCircleStyle,
+    required this.searchCircleOptions,
     this.onMarkerTap,
     this.popupOptions,
     this.rotate,
@@ -81,7 +81,7 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
   late final StreamSubscription<LatLng?> _controllerSubscription;
   late final RadiusClusterStateImpl _radiusClusterStateImpl;
   late final MapCalculator _mapCalculator;
-  late final RadiusClusterSearcher _searcher;
+  late final SearchBoundaryCalculator _searchBoundaryCalculator;
 
   late CenterZoomController _centerZoomController;
   StreamSubscription<void>? _movementStreamSubscription;
@@ -101,18 +101,17 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
       clusterAnchorPos: widget.anchor,
     );
 
+    _searchBoundaryCalculator = SearchBoundaryCalculator(
+      mapState: widget.mapState,
+      radiusInKm: widget.radiusInKm,
+      minimumSearchDistanceDifferenceInKm:
+          widget.minimumSearchDistanceDifferenceInKm,
+    );
+
     _centerZoomController = CenterZoomController(
       vsync: this,
       mapState: widget.mapState,
       animationOptions: widget.clusterZoomAnimation,
-    );
-
-    _searcher = RadiusClusterSearcher(
-      mapState: widget.mapState,
-      minimumSearchDistanceDifferenceInKm:
-          widget.minimumSearchDistanceDifferenceInKm,
-      radiusInKm: widget.radiusInKm,
-      search: widget.search,
     );
 
     _radiusClusterStateImpl =
@@ -160,7 +159,7 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
           SearchCirclesOverlay(
             mapCalculator: _mapCalculator,
             radiusInM: widget.radiusInKm * 1000,
-            style: widget.searchCircleStyle,
+            options: widget.searchCircleOptions,
           ),
           if (widget.fixedOverlayBuilder != null)
             FixedOverlay(
@@ -290,12 +289,16 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     center ??= widget.mapState.center;
 
     widget.popupOptions?.popupController.hideAllPopups();
-    _radiusClusterStateImpl.initiateSearch(center);
+    _radiusClusterStateImpl.initiateSearch(
+      center,
+      outsidePreviousSearchBoundary: _searchBoundaryCalculator
+          .outsidePreviousSearchBoundary(_radiusClusterStateImpl.center),
+    );
 
     try {
-      _radiusClusterStateImpl.setSearchResult(await _searcher.search(center));
-      _radiusClusterStateImpl.outsidePreviousSearchBoundary = _searcher
-          .outsidePreviousSearchBoundary(_radiusClusterStateImpl.center);
+      _radiusClusterStateImpl.setSearchResult(
+        await widget.search(widget.radiusInKm, center),
+      );
     } catch (error, stackTrace) {
       _radiusClusterStateImpl.setSearchErrored();
       if (widget.onError == null) rethrow;
@@ -312,7 +315,9 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
       _hidePopupIfZoomLessThan = null;
     }
 
-    _radiusClusterStateImpl.outsidePreviousSearchBoundary =
-        _searcher.outsidePreviousSearchBoundary(_radiusClusterStateImpl.center);
+    _radiusClusterStateImpl.onMove(
+      outsidePreviousSearchBoundary: _searchBoundaryCalculator
+          .outsidePreviousSearchBoundary(_radiusClusterStateImpl.center),
+    );
   }
 }

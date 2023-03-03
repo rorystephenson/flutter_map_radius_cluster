@@ -186,7 +186,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
 
   Future<SuperclusterImmutable<Marker>> _search(
       double radiusInKm, LatLng center) async {
-    await (Future.delayed(const Duration(seconds: 1)));
+    await (Future.delayed(const Duration(seconds: 2)));
     _errorCursor = (_errorCursor + 1) % 3;
     if (_errorCursor == 0) throw 'Simulated error';
 

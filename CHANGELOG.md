@@ -1,3 +1,10 @@
+## [2.2.0]
+
+- BREAKING: `searchCircleStyle` is now `searchCircleOptions` and allows more customisation of
+            search circles in the various states. Notably search circles may now have a repeating
+            fade animation. If you use the default options the loading circle indicator will use
+            this animation.
+
 ## [2.1.0]
 
 - DEPENDENCY: `flutter_map` 3.1.0

@@ -25,10 +25,14 @@ class RadiusClusterStateImpl with ChangeNotifier implements RadiusClusterState {
   })  : _searchCenter = initialCenter,
         _supercluster = initialSupercluster;
 
-  void initiateSearch(LatLng center) {
+  void initiateSearch(
+    LatLng center, {
+    required bool outsidePreviousSearchBoundary,
+  }) {
     _lastSearchErrored = false;
     _searchCenter = center;
     _supercluster = null;
+    _outsidePreviousSearchBoundary = outsidePreviousSearchBoundary;
     notifyListeners();
   }
 
@@ -88,9 +92,9 @@ class RadiusClusterStateImpl with ChangeNotifier implements RadiusClusterState {
   @override
   bool get outsidePreviousSearchBoundary => _outsidePreviousSearchBoundary;
 
-  set outsidePreviousSearchBoundary(bool newValue) {
-    if (newValue != _outsidePreviousSearchBoundary) {
-      _outsidePreviousSearchBoundary = newValue;
+  void onMove({required bool outsidePreviousSearchBoundary}) {
+    if (outsidePreviousSearchBoundary != _outsidePreviousSearchBoundary) {
+      _outsidePreviousSearchBoundary = outsidePreviousSearchBoundary;
       notifyListeners();
     }
   }
