@@ -1,3 +1,7 @@
+## [2.2.1]
+
+- FEATURE: Make selected markers appear above others.
+
 ## [2.2.0]
 
 - BREAKING: `searchCircleStyle` is now `searchCircleOptions` and allows more customisation of

@@ -20,9 +20,9 @@ import 'options/popup_options.dart';
 import 'options/search_circle_options.dart';
 import 'overlay/fixed_overlay.dart';
 import 'radius_cluster_layer.dart';
+import 'search_boundary_calculator.dart';
 import 'state/radius_cluster_state.dart';
 import 'state/radius_cluster_state_impl.dart';
-import 'search_boundary_calculator.dart';
 
 class RadiusClusterLayerImpl extends StatefulWidget {
   final FlutterMapState mapState;
@@ -194,21 +194,38 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     });
   }
 
-  Iterable<Widget> _buildClustersAndMarkers() {
+  Iterable<Widget> _buildClustersAndMarkers() sync* {
     final paddedBounds = _mapCalculator.paddedMapBounds();
-    return _radiusClusterStateImpl
-        .getLayerElementsIn(
-          paddedBounds,
-          widget.mapState.zoom.ceil(),
-        )
-        .map(_buildMarkerOrCluster);
-  }
 
-  Widget _buildMarkerOrCluster(ImmutableLayerElement<Marker> layerElement) {
-    return layerElement.map(
-      cluster: _buildCluster,
-      point: _buildMarker,
-    );
+    List<ImmutableLayerPoint<Marker>> selectedLayerElements = [];
+    final selectedMarkerBuilder =
+        widget.popupOptions != null && _popupState!.selectedMarkers.isNotEmpty
+            ? widget.popupOptions!.selectedMarkerBuilder
+            : null;
+
+    for (final layerElement in _radiusClusterStateImpl.getLayerElementsIn(
+      paddedBounds,
+      widget.mapState.zoom.ceil(),
+    )) {
+      if (layerElement is ImmutableLayerCluster<Marker>) {
+        yield _buildCluster(layerElement);
+      } else {
+        layerElement as ImmutableLayerPoint<Marker>;
+        final selected = selectedMarkerBuilder != null &&
+            _popupState!.selectedMarkers.contains(layerElement.originalPoint);
+
+        if (selected) {
+          selectedLayerElements.add(layerElement);
+        } else {
+          yield _buildMarker(layerElement);
+        }
+      }
+    }
+
+    // Make selected markers appear above others.
+    for (final selectedLayerElement in selectedLayerElements) {
+      yield _buildMarker(selectedLayerElement, selected: true);
+    }
   }
 
   Widget _buildCluster(ImmutableLayerCluster<Marker> layerCluster) {
@@ -221,16 +238,16 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     );
   }
 
-  Widget _buildMarker(ImmutableLayerPoint<Marker> layerPoint) {
+  Widget _buildMarker(
+    ImmutableLayerPoint<Marker> layerPoint, {
+    bool selected = false,
+  }) {
     final marker = layerPoint.originalPoint;
 
-    var markerBuilder = marker.builder;
-    final popupOptions = widget.popupOptions;
-    if (popupOptions?.selectedMarkerBuilder != null &&
-        _popupState!.selectedMarkers.contains(marker)) {
-      markerBuilder = ((context) =>
-          widget.popupOptions!.selectedMarkerBuilder!(context, marker));
-    }
+    final markerBuilder = !selected
+        ? marker.builder
+        : (context) =>
+            widget.popupOptions!.selectedMarkerBuilder!(context, marker);
 
     return MarkerWidget(
       mapCalculator: _mapCalculator,
