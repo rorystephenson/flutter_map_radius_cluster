@@ -4,6 +4,8 @@ class LatLngCalc {
   static const _distanceCalculator =
       Distance(roundResult: false, calculator: Haversine());
 
+  const LatLngCalc._();
+
   static LatLng offset(LatLng from, double meters, double bearing) =>
       _distanceCalculator.offset(from, meters, bearing);
 

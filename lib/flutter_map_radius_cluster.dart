@@ -4,7 +4,9 @@ export 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 export 'package:supercluster/supercluster.dart';
 
 export 'src/cluster_data_with_count.dart';
+export 'src/controller/marker_identifier.dart';
 export 'src/controller/radius_cluster_controller.dart';
+export 'src/controller/show_popup_options.dart';
 export 'src/map_calculator.dart';
 export 'src/options/animation_options.dart';
 export 'src/options/fade_animation_options.dart';

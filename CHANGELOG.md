@@ -1,3 +1,10 @@
+## [2.3.0]
+
+- FEATURE: Added RadiusClusterController.moveToMarker which allows the map to be moved to a marker
+           and, if required to make the marker visible, trigger searching and zooming.
+- BREAKING: Remove stream getter from RadiusClusterController since the stream only exists for
+            passing events to RadiusClusterLayer.
+
 ## [2.2.1]
 
 - FEATURE: Make selected markers appear above others.

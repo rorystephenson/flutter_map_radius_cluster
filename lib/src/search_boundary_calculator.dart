@@ -13,6 +13,9 @@ class SearchBoundaryCalculator {
     required this.minimumSearchDistanceDifferenceInKm,
   });
 
+  // Returns true if the current map position is outside of the boundary of the
+  /// previous search as defined by the [previousSearchCenter] and [radiusInKm].
+  /// Returns true if [previousSearchCenter] is null.
   bool outsidePreviousSearchBoundary(LatLng? previousSearchCenter) {
     if (previousSearchCenter == null) return true;
 

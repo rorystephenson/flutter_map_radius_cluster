@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
@@ -6,7 +7,12 @@ import 'package:flutter_map_marker_popup/extension_api.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 import 'package:flutter_map_radius_cluster/src/center_zoom_controller.dart';
 import 'package:flutter_map_radius_cluster/src/cluster_widget.dart';
+import 'package:flutter_map_radius_cluster/src/controller/marker_identifier.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller.dart';
+import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller_impl.dart';
+import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_event.dart';
+import 'package:flutter_map_radius_cluster/src/controller/show_popup_options.dart';
+import 'package:flutter_map_radius_cluster/src/lat_lng_calc.dart';
 import 'package:flutter_map_radius_cluster/src/marker_widget.dart';
 import 'package:flutter_map_radius_cluster/src/overlay/search_circles_overlay.dart';
 import 'package:flutter_map_radius_cluster/src/rotate.dart';
@@ -76,9 +82,9 @@ class RadiusClusterLayerImpl extends StatefulWidget {
 
 class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     with TickerProviderStateMixin {
-  late final RadiusClusterController _controller;
+  late final RadiusClusterControllerImpl _controller;
   late final bool _shouldDisposeController;
-  late final StreamSubscription<LatLng?> _controllerSubscription;
+  late final StreamSubscription<RadiusClusterEvent> _controllerSubscription;
   late final RadiusClusterStateImpl _radiusClusterStateImpl;
   late final MapCalculator _mapCalculator;
   late final SearchBoundaryCalculator _searchBoundaryCalculator;
@@ -117,11 +123,13 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     _radiusClusterStateImpl =
         widget.initialRadiusClusterState as RadiusClusterStateImpl;
 
-    _controller = widget.controller ?? RadiusClusterController();
+    _controller = widget.controller != null
+        ? widget.controller as RadiusClusterControllerImpl
+        : RadiusClusterControllerImpl();
     _shouldDisposeController = widget.controller == null;
-    _controllerSubscription = _controller.searchStream.listen(_searchAt);
+    _controllerSubscription = _controller.stream.listen(_handleEvent);
 
-    _movementStreamSubscription = widget.stream.listen(_onMove);
+    _movementStreamSubscription = widget.stream.listen((_) => _onMove());
 
     if (_radiusClusterStateImpl.center != null &&
         _radiusClusterStateImpl.supercluster == null) {
@@ -273,12 +281,8 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
       final targetZoom =
           clustersAndMarkers.expansionZoomOf(layerCluster.id).toDouble();
 
-      _centerZoomController.moveTo(
-        CenterZoom(
-          center: LatLng(layerCluster.latitude, layerCluster.longitude),
-          zoom: targetZoom,
-        ),
-      );
+      _moveTo(LatLng(layerCluster.latitude, layerCluster.longitude),
+          zoom: targetZoom);
     };
   }
 
@@ -302,7 +306,20 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     };
   }
 
-  void _searchAt(LatLng? center) async {
+  void _onMove() {
+    if (_hidePopupIfZoomLessThan != null &&
+        widget.mapState.zoom.ceil() < _hidePopupIfZoomLessThan!) {
+      widget.popupOptions?.popupController.hideAllPopups();
+      _hidePopupIfZoomLessThan = null;
+    }
+
+    _radiusClusterStateImpl.onMove(
+      outsidePreviousSearchBoundary: _searchBoundaryCalculator
+          .outsidePreviousSearchBoundary(_radiusClusterStateImpl.center),
+    );
+  }
+
+  Future<SuperclusterImmutable?> _searchAt(LatLng? center) async {
     center ??= widget.mapState.center;
 
     widget.popupOptions?.popupController.hideAllPopups();
@@ -313,28 +330,114 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     );
 
     try {
-      _radiusClusterStateImpl.setSearchResult(
-        await widget.search(widget.radiusInKm, center),
-      );
+      final result = await widget.search(widget.radiusInKm, center);
+      _radiusClusterStateImpl.setSearchResult(result);
+
+      setState(() {});
+      return result;
     } catch (error, stackTrace) {
       _radiusClusterStateImpl.setSearchErrored();
       if (widget.onError == null) rethrow;
       widget.onError!(error, stackTrace);
-    } finally {
+
       setState(() {});
+      return null;
     }
   }
 
-  void _onMove(void _) {
-    if (_hidePopupIfZoomLessThan != null &&
-        widget.mapState.zoom.ceil() < _hidePopupIfZoomLessThan!) {
-      widget.popupOptions?.popupController.hideAllPopups();
-      _hidePopupIfZoomLessThan = null;
+  /// Return a future which completes when (if) the animation completes. If the
+  /// animation is interrupted by another animation starting this never
+  /// completes.
+  TickerFuture _moveTo(LatLng latLng, {double? zoom}) {
+    return _centerZoomController.moveTo(
+      CenterZoom(
+        center: latLng,
+        zoom: zoom ?? widget.mapState.zoom,
+      ),
+    );
+  }
+
+  ImmutableLayerPoint<Marker>? _findMarkerInCurrentSearchResults(
+    MarkerMatcher markerMatcher,
+  ) {
+    final supercluster = _radiusClusterStateImpl.supercluster;
+    if (supercluster == null) return null;
+
+    final latLng = markerMatcher.point;
+    final matchingElements = supercluster
+        .search(
+          latLng.longitude - 0.0000000001,
+          latLng.latitude - 0.0000000001,
+          latLng.longitude + 0.0000000001,
+          latLng.latitude + 0.0000000001,
+          supercluster.maxZoom + 1,
+        )
+        .where((element) => element.map(
+            cluster: (_) => false,
+            point: (point) => markerMatcher.matches(point.originalPoint)));
+
+    return matchingElements.isEmpty
+        ? null
+        : matchingElements.first as ImmutableLayerPoint<Marker>;
+  }
+
+  void _moveToMarker({
+    required MarkerMatcher markerMatcher,
+    required bool centerMarker,
+    required ShowPopupOptions? showPopupOptions,
+  }) async {
+    if (centerMarker) _moveTo(markerMatcher.point);
+
+    bool searchPerformed = false;
+    if (_radiusClusterStateImpl.supercluster == null ||
+        _radiusClusterStateImpl.center == null ||
+        LatLngCalc.distanceInM(
+                    _radiusClusterStateImpl.center!, markerMatcher.point) /
+                1000.0 >
+            widget.radiusInKm) {
+      await _searchAt(markerMatcher.point);
+      searchPerformed = true;
     }
 
-    _radiusClusterStateImpl.onMove(
-      outsidePreviousSearchBoundary: _searchBoundaryCalculator
-          .outsidePreviousSearchBoundary(_radiusClusterStateImpl.center),
+    ImmutableLayerPoint<Marker>? foundLayerPoint =
+        _findMarkerInCurrentSearchResults(markerMatcher);
+    if (foundLayerPoint == null) {
+      if (searchPerformed) return;
+
+      await _searchAt(markerMatcher.point);
+      foundLayerPoint = _findMarkerInCurrentSearchResults(markerMatcher);
+      if (foundLayerPoint == null) return;
+    }
+
+    final foundMarker = foundLayerPoint.originalPoint;
+    final markerMovementFuture = _moveTo(
+      foundLayerPoint.originalPoint.point,
+      zoom: max(widget.mapState.zoom, foundLayerPoint.lowestZoom - 0.99999),
+    );
+
+    final popupController = widget.popupOptions?.popupController;
+    if (showPopupOptions != null && popupController != null) {
+      markerMovementFuture.whenComplete(() {
+        if (showPopupOptions.hideOthers == true) {
+          popupController.showPopupsOnlyFor(
+            [foundMarker],
+            disableAnimation: showPopupOptions.disableAnimation,
+          );
+        } else {
+          popupController.showPopupsAlsoFor(
+            [foundMarker],
+            disableAnimation: showPopupOptions.disableAnimation,
+          );
+        }
+      });
+    }
+  }
+
+  void _handleEvent(RadiusClusterEvent event) {
+    event.handle(
+      searchAtCurrentCenter: () => _searchAt(null),
+      searchAtPosition: ({required LatLng center}) => _searchAt(center),
+      moveToMarker: _moveToMarker,
     );
   }
 }

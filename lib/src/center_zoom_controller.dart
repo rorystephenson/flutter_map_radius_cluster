@@ -51,19 +51,20 @@ class CenterZoomController {
     _zoomController = null;
   }
 
-  void moveTo(CenterZoom centerZoom) {
+  TickerFuture moveTo(CenterZoom centerZoom) {
     if (_zoomController == null) {
       mapState.move(
         centerZoom.center,
         centerZoom.zoom,
         source: MapEventSource.custom,
       );
+      return TickerFuture.complete();
     } else {
-      _animateTo(centerZoom);
+      return _animateTo(centerZoom);
     }
   }
 
-  void _animateTo(CenterZoom centerZoom) {
+  TickerFuture _animateTo(CenterZoom centerZoom) {
     final begin = CenterZoom(
       center: mapState.center,
       zoom: mapState.zoom,
@@ -78,7 +79,7 @@ class CenterZoomController {
     if (_zoomController!.isAnimating || _zoomController!.isCompleted) {
       _zoomController!.reset();
     }
-    _zoomController!.forward();
+    return _zoomController!.forward();
   }
 
   void _setDynamicDuration(double velocity, CenterZoom begin, CenterZoom end) {
