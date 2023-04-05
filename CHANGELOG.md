@@ -1,3 +1,20 @@
+## [2.4.0]
+
+ - BREAKING: Clusters no longer have a tap behaviour by default. Previously tapping a cluster
+             zoomed in until its markers were visible but now this is optional behaviour that can
+             be implented using onClusterTap which provides the minimum zoom required to view the
+             cluster's points. See the example app for examples of both animated and non-animated
+             zooming.
+ - BREAKING: RadiusClusterController moveToMarker's arguments have changed. The popup behaviour is
+             now the same as the RadiusClusterLayer's popupOptions and showing popups is controlled
+             with the showPopup option. The style of movement can be changed using the [move]
+             callback, see the documentation and the example app for more information.
+ - BREAKING: ClusterZoomAnimation has been removed, movement animations can now be configured by
+             the user, see the two previous points.
+ - FEATURE: Various performance improvements around rendering of search circles.
+ - FEATURE: All movement is now controlled by the user which means they may now choose to use an
+            animated flutter map movement plugin like flutter_map_aniamtions to animate movement.
+
 ## [2.3.0]
 
 - FEATURE: Added RadiusClusterController.moveToMarker which allows the map to be moved to a marker

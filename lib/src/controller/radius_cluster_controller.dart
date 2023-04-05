@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter_map_radius_cluster/src/controller/marker_identifier.dart';
-import 'package:flutter_map_radius_cluster/src/controller/show_popup_options.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'radius_cluster_controller_impl.dart';
@@ -16,7 +17,7 @@ abstract class RadiusClusterController {
   /// Moves the map to make the given [marker] visible. Zoom changes and
   /// searches may occur if neccessary as described below.
   ///
-  /// Zoom changes: If the markers is clustered at the current zoom the zoom
+  /// Zoom changes: If the marker is clustered at the current zoom the zoom
   /// will be increased to the minimum neccesary to view the Marker.
   ///
   /// Searches triggered:
@@ -30,13 +31,16 @@ abstract class RadiusClusterController {
   ///   marker was previously filtered out of search results.
   void moveToMarker(
     MarkerMatcher markerMatcher, {
-    /// Whether the map should be centered on the marker. Defaults to true.
-    bool centerMarker = true,
+    /// Whether the target Marker's popup should be shown if the Marker is
+    /// successfully found, defaults to true. This option has no affect if
+    /// popups are disabled.
+    bool showPopup,
 
-    /// If [showPopupOptions] is provided and the target marker is successfully
-    /// found its popup will be shown once the map has moved to the marker. Has
-    /// no affect if popups are disabled.
-    ShowPopupOptions? showPopupOptions,
+    /// If [move] is provided it will control the movement. Two movements may
+    /// occur, first to center the map at the Marker's center and second to
+    /// zoom in to the Marker if required. If [zoom] is provided it should
+    /// handle cancelling existing movements when a movement is initiated.
+    FutureOr<void> Function(LatLng center, double zoom)? move,
   });
 
   /// Dispose of the controller.

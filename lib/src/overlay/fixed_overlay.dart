@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller.dart';
 import 'package:provider/provider.dart';
 
@@ -28,12 +27,9 @@ class FixedOverlay extends StatelessWidget {
   }
 
   Widget _unrotated(Widget overlay) {
-    if (mapCalculator.mapState.rotationRad == 0) return overlay;
+    if (mapCalculator.rotationRad == 0) return overlay;
 
-    final mapState = mapCalculator.mapState;
-    final CustomPoint<num> size = mapState.size;
-    final sizeChangeDueToRotation = size -
-        (mapState.nonrotatedSize ?? mapState.size) as CustomPoint<double>;
+    final sizeChangeDueToRotation = mapCalculator.sizeChangeDueToRotation;
     return Positioned.fill(
       top: sizeChangeDueToRotation.y / 2,
       bottom: sizeChangeDueToRotation.y / 2,
@@ -41,7 +37,7 @@ class FixedOverlay extends StatelessWidget {
       right: sizeChangeDueToRotation.x / 2,
       child: Transform(
         alignment: Alignment.center,
-        transform: Matrix4.identity()..rotateZ(-mapState.rotationRad),
+        transform: Matrix4.identity()..rotateZ(-mapCalculator.rotationRad),
         child: overlay,
       ),
     );

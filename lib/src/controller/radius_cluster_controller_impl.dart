@@ -5,7 +5,6 @@ import 'package:latlong2/latlong.dart';
 
 import 'marker_identifier.dart';
 import 'radius_cluster_controller.dart';
-import 'show_popup_options.dart';
 
 class RadiusClusterControllerImpl implements RadiusClusterController {
   final StreamController<RadiusClusterEvent> _streamController;
@@ -28,14 +27,14 @@ class RadiusClusterControllerImpl implements RadiusClusterController {
   @override
   void moveToMarker(
     MarkerMatcher markerMatcher, {
-    bool centerMarker = true,
-    ShowPopupOptions? showPopupOptions,
+    bool showPopup = true,
+    FutureOr<void> Function(LatLng center, double zoom)? move,
   }) {
     _streamController.add(
       RadiusClusterEvent.moveToMarker(
         markerMatcher: markerMatcher,
-        centerMarker: centerMarker,
-        showPopupOptions: showPopupOptions,
+        showPopup: showPopup,
+        move: move,
       ),
     );
   }

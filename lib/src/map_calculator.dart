@@ -5,32 +5,32 @@ import 'package:flutter_map/plugin_api.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supercluster/supercluster.dart';
 
+/// Wraps MapState exposing methods that are needed from MapState as well as
+/// calculations using MapState and the provided options.
 class MapCalculator {
-  final FlutterMapState mapState;
+  final FlutterMapState _mapState;
   final Size clusterWidgetSize;
   final AnchorPos? clusterAnchorPos;
   final CustomPoint _boundsPixelPadding;
 
   MapCalculator({
-    required this.mapState,
+    required FlutterMapState mapState,
     required this.clusterWidgetSize,
     required this.clusterAnchorPos,
-  }) : _boundsPixelPadding = CustomPoint(
+  })  : _mapState = mapState,
+        _boundsPixelPadding = CustomPoint(
           clusterWidgetSize.width / 2,
           clusterWidgetSize.height / 2,
         );
 
-  CustomPoint<num> getPixelFromPoint(LatLng point) {
-    final pos = mapState.project(point);
-    return pos.multiplyBy(mapState.getZoomScale(mapState.zoom, mapState.zoom)) -
-        mapState.pixelOrigin;
-  }
+  CustomPoint<num> getPixelOffset(LatLng point) =>
+      _mapState.project(point) - _mapState.pixelOrigin;
 
   LatLngBounds paddedMapBounds() {
-    final bounds = mapState.pixelBounds;
+    final bounds = _mapState.pixelBounds;
     return LatLngBounds(
-      mapState.unproject(bounds.topLeft - _boundsPixelPadding),
-      mapState.unproject(bounds.bottomRight + _boundsPixelPadding),
+      _mapState.unproject(bounds.topLeft - _boundsPixelPadding),
+      _mapState.unproject(bounds.bottomRight + _boundsPixelPadding),
     );
   }
 
@@ -38,7 +38,8 @@ class MapCalculator {
     return LatLng(cluster.latitude, cluster.longitude);
   }
 
-  Point<double> removeClusterAnchor(CustomPoint pos, LayerCluster<Marker> cluster) {
+  Point<double> removeClusterAnchor(
+      CustomPoint pos, LayerCluster<Marker> cluster) {
     final anchor = Anchor.forPos(
       clusterAnchorPos,
       clusterWidgetSize.width,
@@ -60,6 +61,20 @@ class MapCalculator {
     return Point(x, y);
   }
 
+  CustomPoint<num> get sizeChangeDueToRotation {
+    final CustomPoint<num> size = _mapState.size;
+    return size - (_mapState.nonrotatedSize ?? _mapState.size)
+        as CustomPoint<double>;
+  }
+
+  /// Below are getters exposing identifcal getters from FlutterMapState.
+
+  LatLng get center => _mapState.center;
+
+  CustomPoint<num> get pixelOrigin => _mapState.pixelOrigin;
+
   CustomPoint project(LatLng latLng, {double? zoom}) =>
-      mapState.project(latLng, zoom);
+      _mapState.project(latLng, zoom);
+
+  double get rotationRad => _mapState.rotationRad;
 }

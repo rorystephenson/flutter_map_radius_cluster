@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_map: ^3.0.0
+  flutter_map_animations: ^0.2.2
   flutter_map_radius_cluster:
     path: ../
   kdbush: ^0.0.4

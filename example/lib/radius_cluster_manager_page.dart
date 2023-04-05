@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_animations/flutter_map_animations.dart';
 import 'package:flutter_map_radius_cluster/flutter_map_radius_cluster.dart';
 import 'package:kdbush/kdbush.dart';
 import 'package:latlong2/latlong.dart';
@@ -13,8 +14,14 @@ class RadiusClusterLayerPage extends StatefulWidget {
   State<RadiusClusterLayerPage> createState() => _RadiusClusterLayerPageState();
 }
 
-class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
-  static const totalMarkers = 2000.0;
+class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
+    with TickerProviderStateMixin {
+  late final AnimatedMapController _animatedMapController;
+  late final RadiusClusterController _radiusClusterController;
+
+  bool _animateMovement = false;
+
+  static const totalMarkers = 2000;
   final minLatLng = LatLng(49.8566, 1.3522);
   final maxLatLng = LatLng(58.3498, -10.2603);
 
@@ -25,6 +32,9 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
   @override
   void initState() {
     super.initState();
+
+    _animatedMapController = AnimatedMapController(vsync: this);
+    _radiusClusterController = RadiusClusterController();
 
     final latitudeRange = maxLatLng.latitude - minLatLng.latitude;
     final longitudeRange = maxLatLng.longitude - minLatLng.longitude;
@@ -60,14 +70,75 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
   }
 
   @override
+  void dispose() {
+    _animatedMapController.dispose();
+    _radiusClusterController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final initialLatLng = LatLng(
       (minLatLng.latitude + maxLatLng.latitude) / 2,
       (minLatLng.longitude + maxLatLng.longitude) / 2,
     );
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(top: 130),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FloatingActionButton.extended(
+              icon: const Icon(Icons.location_pin),
+              label: const Text("Move to random marker"),
+              onPressed: () {
+                final randomMarker =
+                    _kdbush.points[Random().nextInt(_kdbush.points.length - 1)];
+                _radiusClusterController.moveToMarker(
+                  MarkerMatcher.equalsMarker(randomMarker),
+                  showPopup: true,
+                  move: !_animateMovement
+                      ? null
+                      : (center, zoom) => _animatedMapController.animateTo(
+                          dest: center, zoom: zoom),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            FloatingActionButton.extended(
+              icon: const Icon(Icons.animation),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text("Animate movement "),
+                  Switch(
+                      activeColor: Colors.blue.shade200,
+                      activeTrackColor: Colors.black38,
+                      value: _animateMovement,
+                      onChanged: (newValue) {
+                        setState(() {
+                          _animateMovement = newValue;
+                        });
+                      }),
+                ],
+              ),
+              onPressed: () {
+                setState(() {
+                  _animateMovement = !_animateMovement;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(title: const Text('Flutter Map Radius Cluster Example')),
       body: FlutterMap(
+        mapController: _animatedMapController,
         options: MapOptions(
           center: LatLng((maxLatLng.latitude + minLatLng.latitude) / 2,
               (maxLatLng.longitude + minLatLng.longitude) / 2),
@@ -80,11 +151,19 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage> {
             subdomains: const ['a', 'b', 'c'],
           ),
           RadiusClusterLayer(
+            controller: _radiusClusterController,
             radiusInKm: 100.0,
             search: _search,
             fixedOverlayBuilder: _searchButton,
             initialCenter: initialLatLng,
             minimumSearchDistanceDifferenceInKm: 10,
+            onClusterTap: (cluster, center, zoom) {
+              if (_animateMovement) {
+                _animatedMapController.animateTo(dest: center, zoom: zoom);
+              } else {
+                _animatedMapController.move(center, zoom);
+              }
+            },
             onError: (error, _) {
               debugPrint('Captured search error: $error');
             },

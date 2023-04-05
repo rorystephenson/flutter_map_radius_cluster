@@ -8,53 +8,52 @@ import 'package:latlong2/latlong.dart';
 import 'search_circle_painter.dart';
 
 class SearchRadiusIndicator extends StatelessWidget {
-  final LatLng center;
+  final LatLng? center;
   final MapCalculator mapCalculator;
   final double radiusInM;
   final SearchCircleStyle style;
 
   const SearchRadiusIndicator({
     super.key,
-    required this.center,
     required this.mapCalculator,
     required this.radiusInM,
     required this.style,
+
+    /// Defaults to the visible center.
+    this.center,
   });
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (style.fadeAnimation == null) return _searchCircle(constraints);
+    final center = this.center ?? mapCalculator.center;
+    final centerPixel = mapCalculator.project(center);
+    final circleOffset = centerPixel - mapCalculator.pixelOrigin;
 
-          return FadeAnimation(
-            options: style.fadeAnimation!,
-            child: _searchCircle(constraints),
-          );
-        },
-      ),
+    final rightEdgeLatLng = LatLngCalc.offset(center, radiusInM, 90);
+    final pixelRadius =
+        (mapCalculator.project(rightEdgeLatLng).x - centerPixel.x).toDouble();
+
+    return Positioned(
+      left: circleOffset.x.toDouble() - pixelRadius - style.borderWidth,
+      top: circleOffset.y.toDouble() - pixelRadius - style.borderWidth,
+      child: style.fadeAnimation == null
+          ? _searchCircle(pixelRadius)
+          : FadeAnimation(
+              options: style.fadeAnimation!,
+              child: _searchCircle(pixelRadius),
+            ),
     );
   }
 
-  Widget _searchCircle(BoxConstraints constraints) {
-    final centerLatLng = center;
-    final circlePixel = mapCalculator.getPixelFromPoint(centerLatLng);
-
-    final rightEdgeLatLng = LatLngCalc.offset(centerLatLng, radiusInM, 90);
-    final rightEdgePixel = mapCalculator.getPixelFromPoint(rightEdgeLatLng);
-    final pixelRadius = rightEdgePixel.x - circlePixel.x;
+  Widget _searchCircle(double pixelRadius) {
+    final pixelDiameter = pixelRadius * 2 + style.borderWidth * 2;
     return CustomPaint(
-      painter: SearchCirclePainter(
-        pixelRadius: pixelRadius.toDouble(),
-        offset: Offset(
-          circlePixel.x.toDouble(),
-          circlePixel.y.toDouble(),
-        ),
+      foregroundPainter: SearchCirclePainter(
+        pixelRadius: pixelRadius,
         borderColor: style.borderColor,
         borderWidth: style.borderWidth,
       ),
-      size: constraints.biggest,
+      size: Size(pixelDiameter, pixelDiameter),
     );
   }
 }

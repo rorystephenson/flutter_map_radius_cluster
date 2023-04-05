@@ -54,7 +54,7 @@ class MarkerWidget extends StatelessWidget {
     MapCalculator mapCalculator,
     Marker marker,
   ) {
-    final pos = mapCalculator.getPixelFromPoint(marker.point);
+    final pos = mapCalculator.getPixelOffset(marker.point);
     return mapCalculator.removeAnchor(
         pos, marker.width, marker.height, marker.anchor);
   }

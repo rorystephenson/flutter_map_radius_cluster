@@ -1,17 +1,17 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:async/async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_marker_popup/extension_api.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
-import 'package:flutter_map_radius_cluster/src/center_zoom_controller.dart';
 import 'package:flutter_map_radius_cluster/src/cluster_widget.dart';
 import 'package:flutter_map_radius_cluster/src/controller/marker_identifier.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller_impl.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_event.dart';
-import 'package:flutter_map_radius_cluster/src/controller/show_popup_options.dart';
+import 'package:flutter_map_radius_cluster/src/immutable_layer_element_extension.dart';
 import 'package:flutter_map_radius_cluster/src/lat_lng_calc.dart';
 import 'package:flutter_map_radius_cluster/src/marker_widget.dart';
 import 'package:flutter_map_radius_cluster/src/overlay/search_circles_overlay.dart';
@@ -21,7 +21,6 @@ import 'package:provider/provider.dart';
 import 'package:supercluster/supercluster.dart';
 
 import 'map_calculator.dart';
-import 'options/animation_options.dart';
 import 'options/popup_options.dart';
 import 'options/search_circle_options.dart';
 import 'overlay/fixed_overlay.dart';
@@ -45,13 +44,13 @@ class RadiusClusterLayerImpl extends StatefulWidget {
   final Function(dynamic error, StackTrace stackTrace)? onError;
   final SearchCircleOptions searchCircleOptions;
   final void Function(Marker)? onMarkerTap;
+  final ClusterTapHandler? onClusterTap;
   final PopupOptions? popupOptions;
   final bool? rotate;
   final Offset? rotateOrigin;
   final AlignmentGeometry? rotateAlignment;
   final Size clusterWidgetSize;
   final AnchorPos? anchor;
-  final AnimationOptions clusterZoomAnimation;
 
   RadiusClusterLayerImpl({
     Key? key,
@@ -66,13 +65,13 @@ class RadiusClusterLayerImpl extends StatefulWidget {
     this.onError,
     required this.searchCircleOptions,
     this.onMarkerTap,
+    this.onClusterTap,
     this.popupOptions,
     this.rotate,
     this.rotateOrigin,
     this.rotateAlignment,
     required this.clusterWidgetSize,
     this.anchor,
-    required this.clusterZoomAnimation,
   })  : stream = mapState.mapController.mapEventStream,
         super(key: key);
 
@@ -80,8 +79,7 @@ class RadiusClusterLayerImpl extends StatefulWidget {
   State<RadiusClusterLayerImpl> createState() => _RadiusClusterLayerImplState();
 }
 
-class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
-    with TickerProviderStateMixin {
+class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl> {
   late final RadiusClusterControllerImpl _controller;
   late final bool _shouldDisposeController;
   late final StreamSubscription<RadiusClusterEvent> _controllerSubscription;
@@ -89,11 +87,11 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
   late final MapCalculator _mapCalculator;
   late final SearchBoundaryCalculator _searchBoundaryCalculator;
 
-  late CenterZoomController _centerZoomController;
   StreamSubscription<void>? _movementStreamSubscription;
   int? _hidePopupIfZoomLessThan;
-
   PopupState? _popupState;
+  CancelableOperation<SuperclusterImmutable<Marker>>?
+      _cancelableSearchOperation;
 
   _RadiusClusterLayerImplState();
 
@@ -112,12 +110,6 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
       radiusInKm: widget.radiusInKm,
       minimumSearchDistanceDifferenceInKm:
           widget.minimumSearchDistanceDifferenceInKm,
-    );
-
-    _centerZoomController = CenterZoomController(
-      vsync: this,
-      mapState: widget.mapState,
-      animationOptions: widget.clusterZoomAnimation,
     );
 
     _radiusClusterStateImpl =
@@ -140,19 +132,10 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
   }
 
   @override
-  void didUpdateWidget(RadiusClusterLayerImpl oldWidget) {
-    if (oldWidget.clusterZoomAnimation != widget.clusterZoomAnimation) {
-      _centerZoomController.animationOptions = widget.clusterZoomAnimation;
-    }
-    super.didUpdateWidget(oldWidget);
-  }
-
-  @override
   void dispose() {
     if (_shouldDisposeController) _controller.dispose();
     _controllerSubscription.cancel();
     _movementStreamSubscription?.cancel();
-    _centerZoomController.dispose();
     super.dispose();
   }
 
@@ -273,37 +256,45 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     );
   }
 
-  VoidCallback _onClusterTap(ImmutableLayerCluster<Marker> layerCluster) {
+  VoidCallback? _onClusterTap(ImmutableLayerCluster<Marker> layerCluster) {
+    if (widget.onClusterTap == null) return null;
+
     return () {
-      final clustersAndMarkers = _radiusClusterStateImpl.supercluster;
-      if (clustersAndMarkers == null) throw 'No clusters loaded';
+      final clustersAndMarkers = _radiusClusterStateImpl.supercluster!;
 
       final targetZoom =
           clustersAndMarkers.expansionZoomOf(layerCluster.id).toDouble();
 
-      _moveTo(LatLng(layerCluster.latitude, layerCluster.longitude),
-          zoom: targetZoom);
+      widget.onClusterTap!.call(
+        layerCluster,
+        layerCluster.latLng,
+        targetZoom,
+      );
     };
   }
 
   VoidCallback _onMarkerTap(ImmutableLayerPoint<Marker> layerPoint) {
     return () {
-      if (widget.popupOptions != null) {
-        assert(_popupState != null);
-
-        final popupOptions = widget.popupOptions!;
-        popupOptions.markerTapBehavior.apply(
-          layerPoint.originalPoint,
-          _popupState!,
-          popupOptions.popupController,
-        );
-        _hidePopupIfZoomLessThan = layerPoint.lowestZoom;
-
-        if (popupOptions.selectedMarkerBuilder != null) setState(() {});
-      }
+      _selectLayerPoint(layerPoint);
 
       widget.onMarkerTap?.call(layerPoint.originalPoint);
     };
+  }
+
+  void _selectLayerPoint(ImmutableLayerPoint<Marker> layerPoint) {
+    if (widget.popupOptions != null) {
+      assert(_popupState != null);
+
+      final popupOptions = widget.popupOptions!;
+      popupOptions.markerTapBehavior.apply(
+        layerPoint.originalPoint,
+        _popupState!,
+        popupOptions.popupController,
+      );
+      _hidePopupIfZoomLessThan = layerPoint.lowestZoom;
+
+      if (popupOptions.selectedMarkerBuilder != null) setState(() {});
+    }
   }
 
   void _onMove() {
@@ -329,8 +320,11 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
           .outsidePreviousSearchBoundary(_radiusClusterStateImpl.center),
     );
 
+    _cancelableSearchOperation?.cancel();
     try {
-      final result = await widget.search(widget.radiusInKm, center);
+      _cancelableSearchOperation = CancelableOperation.fromFuture(
+          widget.search(widget.radiusInKm, center));
+      final result = await _cancelableSearchOperation!.value;
       _radiusClusterStateImpl.setSearchResult(result);
 
       setState(() {});
@@ -343,18 +337,6 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
       setState(() {});
       return null;
     }
-  }
-
-  /// Return a future which completes when (if) the animation completes. If the
-  /// animation is interrupted by another animation starting this never
-  /// completes.
-  TickerFuture _moveTo(LatLng latLng, {double? zoom}) {
-    return _centerZoomController.moveTo(
-      CenterZoom(
-        center: latLng,
-        zoom: zoom ?? widget.mapState.zoom,
-      ),
-    );
   }
 
   ImmutableLayerPoint<Marker>? _findMarkerInCurrentSearchResults(
@@ -383,10 +365,17 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
 
   void _moveToMarker({
     required MarkerMatcher markerMatcher,
-    required bool centerMarker,
-    required ShowPopupOptions? showPopupOptions,
+    required bool showPopup,
+    required FutureOr<void> Function(LatLng center, double zoom)? move,
   }) async {
-    if (centerMarker) _moveTo(markerMatcher.point);
+    // This void check error seems to be an analyzer bug.
+    // ignore: void_checks
+    move ??= (center, zoom) {
+      widget.mapState.mapController.move(center, zoom);
+      return TickerFuture.complete();
+    };
+
+    move(markerMatcher.point, widget.mapState.zoom);
 
     bool searchPerformed = false;
     if (_radiusClusterStateImpl.supercluster == null ||
@@ -409,27 +398,26 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
       if (foundLayerPoint == null) return;
     }
 
-    final foundMarker = foundLayerPoint.originalPoint;
-    final markerMovementFuture = _moveTo(
-      foundLayerPoint.originalPoint.point,
-      zoom: max(widget.mapState.zoom, foundLayerPoint.lowestZoom - 0.99999),
-    );
+    final minimumVisibleZoom =
+        max(widget.mapState.zoom, foundLayerPoint.lowestZoom - 0.99999);
 
-    final popupController = widget.popupOptions?.popupController;
-    if (showPopupOptions != null && popupController != null) {
-      markerMovementFuture.whenComplete(() {
-        if (showPopupOptions.hideOthers == true) {
-          popupController.showPopupsOnlyFor(
-            [foundMarker],
-            disableAnimation: showPopupOptions.disableAnimation,
-          );
-        } else {
-          popupController.showPopupsAlsoFor(
-            [foundMarker],
-            disableAnimation: showPopupOptions.disableAnimation,
-          );
-        }
-      });
+    FutureOr<void>? markerMovementFuture;
+    if (minimumVisibleZoom != widget.mapState.zoom ||
+        foundLayerPoint.latLng != widget.mapState.center) {
+      markerMovementFuture = move(
+        foundLayerPoint.latLng,
+        minimumVisibleZoom,
+      );
+    }
+
+    if (showPopup) {
+      if (widget.mapState.zoom >= minimumVisibleZoom) {
+        _selectLayerPoint(foundLayerPoint);
+      } else if (markerMovementFuture is Future<void>) {
+        markerMovementFuture.whenComplete(() {
+          _selectLayerPoint(foundLayerPoint!);
+        });
+      }
     }
   }
 

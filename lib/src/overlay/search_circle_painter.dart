@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 
 class SearchCirclePainter extends CustomPainter {
-  final Offset offset;
   final double pixelRadius;
   final Color? fillColor;
   final Color? borderColor;
   final double? borderWidth;
 
-  SearchCirclePainter({
+  const SearchCirclePainter({
     required this.pixelRadius,
-    required this.offset,
     this.borderWidth,
     this.fillColor,
     this.borderColor,
@@ -24,7 +22,7 @@ class SearchCirclePainter extends CustomPainter {
         ..style = PaintingStyle.fill
         ..color = fillColor!;
 
-      _paintCircle(canvas, offset, pixelRadius, paint);
+      _paintCircle(canvas, pixelRadius, paint);
     }
 
     if (borderColor != null && borderWidth != null) {
@@ -35,17 +33,25 @@ class SearchCirclePainter extends CustomPainter {
 
       _paintCircle(
         canvas,
-        offset,
         pixelRadius + (borderWidth! / 2),
         paint,
       );
     }
   }
 
-  void _paintCircle(Canvas canvas, Offset offset, double radius, Paint paint) {
+  void _paintCircle(Canvas canvas, double radius, Paint paint) {
     canvas.drawCircle(offset, radius, paint);
   }
 
+  Offset get offset => Offset(
+        pixelRadius + (borderWidth ?? 0),
+        pixelRadius + (borderWidth ?? 0),
+      );
+
   @override
-  bool shouldRepaint(SearchCirclePainter oldDelegate) => false;
+  bool shouldRepaint(SearchCirclePainter oldDelegate) =>
+      oldDelegate.pixelRadius != pixelRadius ||
+      oldDelegate.fillColor != fillColor ||
+      oldDelegate.borderColor != borderColor ||
+      oldDelegate.borderWidth != borderWidth;
 }

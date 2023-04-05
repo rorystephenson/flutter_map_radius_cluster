@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map_radius_cluster/src/controller/marker_identifier.dart';
-import 'package:flutter_map_radius_cluster/src/controller/show_popup_options.dart';
 import 'package:latlong2/latlong.dart';
 
 @immutable
@@ -16,8 +17,8 @@ abstract class RadiusClusterEvent {
 
   const factory RadiusClusterEvent.moveToMarker({
     required MarkerMatcher markerMatcher,
-    required bool centerMarker,
-    required ShowPopupOptions? showPopupOptions,
+    required bool showPopup,
+    required FutureOr<void> Function(LatLng center, double zoom)? move,
   }) = _MoveToMarkerEvent._;
 
   void handle({
@@ -25,8 +26,8 @@ abstract class RadiusClusterEvent {
     required void Function({required LatLng center}) searchAtPosition,
     required void Function({
       required MarkerMatcher markerMatcher,
-      required bool centerMarker,
-      required ShowPopupOptions? showPopupOptions,
+      required bool showPopup,
+      required FutureOr<void> Function(LatLng center, double zoom)? move,
     })
         moveToMarker,
   }) {
@@ -39,8 +40,8 @@ abstract class RadiusClusterEvent {
     } else if (event is _MoveToMarkerEvent) {
       moveToMarker(
         markerMatcher: event.markerMatcher,
-        centerMarker: event.centerMarker,
-        showPopupOptions: event.showPopupOptions,
+        showPopup: event.showPopup,
+        move: event.move,
       );
     } else {
       throw 'Unexpected RadiusCLusterEvent: $event';
@@ -62,12 +63,12 @@ class _SearchAtPositionEvent extends RadiusClusterEvent {
 
 class _MoveToMarkerEvent extends RadiusClusterEvent {
   final MarkerMatcher markerMatcher;
-  final bool centerMarker;
-  final ShowPopupOptions? showPopupOptions;
+  final bool showPopup;
+  final FutureOr<void> Function(LatLng center, double zoom)? move;
 
   const _MoveToMarkerEvent._({
     required this.markerMatcher,
-    required this.centerMarker,
-    required this.showPopupOptions,
+    required this.showPopup,
+    required this.move,
   }) : super._();
 }

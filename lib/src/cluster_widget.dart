@@ -10,7 +10,7 @@ import 'radius_cluster_layer.dart';
 class ClusterWidget extends StatelessWidget {
   final LayerCluster<Marker> cluster;
   final ClusterWidgetBuilder builder;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Size size;
   final Point<double> position;
 
@@ -45,7 +45,7 @@ class ClusterWidget extends StatelessWidget {
     LayerCluster<Marker> cluster,
   ) {
     final pos =
-        mapCalculator.getPixelFromPoint(mapCalculator.clusterPoint(cluster));
+        mapCalculator.getPixelOffset(mapCalculator.clusterPoint(cluster));
 
     return mapCalculator.removeClusterAnchor(pos, cluster);
   }

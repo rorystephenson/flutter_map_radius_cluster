@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supercluster/supercluster.dart';
 
 import 'controller/radius_cluster_controller.dart';
-import 'options/animation_options.dart';
 import 'options/popup_options.dart';
 import 'options/search_circle_options.dart';
 import 'radius_cluster_layer_impl.dart';
@@ -18,6 +19,12 @@ typedef FixedOverlayBuilder = Widget Function(
   BuildContext context,
   RadiusClusterController controller,
   RadiusClusterState radiusClusterState,
+);
+
+typedef ClusterTapHandler = void Function(
+  ImmutableLayerCluster<Marker> cluster,
+  LatLng center,
+  double expansionZoom,
 );
 
 class RadiusClusterLayer extends StatelessWidget {
@@ -65,6 +72,10 @@ class RadiusClusterLayer extends StatelessWidget {
   /// Function to call when a Marker is tapped
   final void Function(Marker)? onMarkerTap;
 
+  /// Function to call when a cluster is tapped. Use this to zoom in to view
+  /// the cluster's Markers by zooming the map to the provided [expansionZoom].
+  final ClusterTapHandler? onClusterTap;
+
   /// Popup's options that show when tapping markers or via the PopupController.
   final PopupOptions? popupOptions;
 
@@ -98,11 +109,6 @@ class RadiusClusterLayer extends StatelessWidget {
   /// Cluster anchor
   final AnchorPos? anchor;
 
-  /// Control cluster zooming (triggered by cluster tap) animation. Use
-  /// [AnimationOptions.none] to disable animation. See
-  ///  [AnimationOptions.animate] for more information on animation options.
-  final AnimationOptions clusterZoomAnimation;
-
   RadiusClusterLayer({
     Key? key,
     required this.search,
@@ -117,16 +123,13 @@ class RadiusClusterLayer extends StatelessWidget {
     SearchCircleOptions? searchCircleOptions,
     Color? nextSearchIndicatorColor,
     this.onMarkerTap,
+    this.onClusterTap,
     this.popupOptions,
     this.rotate,
     this.rotateOrigin,
     this.rotateAlignment,
     this.clusterWidgetSize = const Size(30, 30),
     this.anchor,
-    this.clusterZoomAnimation = const AnimationOptions.animate(
-      curve: Curves.linear,
-      velocity: 1,
-    ),
   })  : assert(initialClustersAndMarkers == null || initialCenter != null,
             'If initialClustersAndMarkers is provided initialCenter is required.'),
         searchCircleOptions = searchCircleOptions ?? SearchCircleOptions(),
@@ -164,13 +167,13 @@ class RadiusClusterLayer extends StatelessWidget {
       onError: onError,
       searchCircleOptions: searchCircleOptions,
       onMarkerTap: onMarkerTap,
+      onClusterTap: onClusterTap,
       popupOptions: popupOptions,
       rotate: rotate,
       rotateOrigin: rotateOrigin,
       rotateAlignment: rotateAlignment,
       clusterWidgetSize: clusterWidgetSize,
       anchor: anchor,
-      clusterZoomAnimation: clusterZoomAnimation,
     );
   }
 }

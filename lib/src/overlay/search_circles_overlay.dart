@@ -35,7 +35,6 @@ class SearchCirclesOverlay extends StatelessWidget {
         if (radiusClusterState.searchState != RadiusSearchState.loading &&
             radiusClusterState.outsidePreviousSearchBoundary)
           SearchRadiusIndicator(
-            center: mapCalculator.mapState.center,
             mapCalculator: mapCalculator,
             radiusInM: radiusInM,
             style: options.nextSearchCircleStyle,
