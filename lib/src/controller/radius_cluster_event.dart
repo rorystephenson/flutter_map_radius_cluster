@@ -1,74 +1,92 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter_map_radius_cluster/src/controller/marker_identifier.dart';
+import 'package:flutter_map/plugin_api.dart';
+import 'package:flutter_map_radius_cluster/src/controller/marker_matcher.dart';
 import 'package:latlong2/latlong.dart';
 
-@immutable
-abstract class RadiusClusterEvent {
-  const RadiusClusterEvent._();
-
-  const factory RadiusClusterEvent.searchAtCurrentCenter() =
-      _SearchAtCurrentCenterEvent._;
-
-  const factory RadiusClusterEvent.searchAtPosition({
-    required LatLng center,
-  }) = _SearchAtPositionEvent._;
-
-  const factory RadiusClusterEvent.moveToMarker({
-    required MarkerMatcher markerMatcher,
-    required bool showPopup,
-    required FutureOr<void> Function(LatLng center, double zoom)? move,
-  }) = _MoveToMarkerEvent._;
-
-  void handle({
-    required VoidCallback searchAtCurrentCenter,
-    required void Function({required LatLng center}) searchAtPosition,
-    required void Function({
-      required MarkerMatcher markerMatcher,
-      required bool showPopup,
-      required FutureOr<void> Function(LatLng center, double zoom)? move,
-    })
-        moveToMarker,
-  }) {
-    final event = this;
-
-    if (event is _SearchAtCurrentCenterEvent) {
-      searchAtCurrentCenter();
-    } else if (event is _SearchAtPositionEvent) {
-      searchAtPosition(center: event.center);
-    } else if (event is _MoveToMarkerEvent) {
-      moveToMarker(
-        markerMatcher: event.markerMatcher,
-        showPopup: event.showPopup,
-        move: event.move,
-      );
-    } else {
-      throw 'Unexpected RadiusCLusterEvent: $event';
-    }
-  }
+sealed class RadiusClusterEvent {
+  const RadiusClusterEvent();
 }
 
-class _SearchAtCurrentCenterEvent extends RadiusClusterEvent {
-  const _SearchAtCurrentCenterEvent._() : super._();
+class SearchAtCurrentCenterEvent extends RadiusClusterEvent {
+  const SearchAtCurrentCenterEvent();
 }
 
-class _SearchAtPositionEvent extends RadiusClusterEvent {
+class SearchAtPositionEvent extends RadiusClusterEvent {
   final LatLng center;
 
-  const _SearchAtPositionEvent._({
-    required this.center,
-  }) : super._();
+  const SearchAtPositionEvent(this.center);
 }
 
-class _MoveToMarkerEvent extends RadiusClusterEvent {
+class CollapseSplayedClustersEvent extends RadiusClusterEvent {
+  const CollapseSplayedClustersEvent();
+}
+
+class MoveToMarkerEvent extends RadiusClusterEvent {
   final MarkerMatcher markerMatcher;
   final bool showPopup;
-  final FutureOr<void> Function(LatLng center, double zoom)? move;
+  final FutureOr<void> Function(LatLng center, double zoom)? moveMap;
 
-  const _MoveToMarkerEvent._({
+  const MoveToMarkerEvent({
     required this.markerMatcher,
     required this.showPopup,
-    required this.move,
-  }) : super._();
+    required this.moveMap,
+  });
+}
+
+class ShowPopupsAlsoForEvent extends RadiusClusterEvent {
+  final List<Marker> markers;
+  final bool disableAnimation;
+
+  const ShowPopupsAlsoForEvent(
+    this.markers, {
+    required this.disableAnimation,
+  });
+}
+
+class ShowPopupsOnlyForEvent extends RadiusClusterEvent {
+  final List<Marker> markers;
+  final bool disableAnimation;
+
+  const ShowPopupsOnlyForEvent(
+    this.markers, {
+    required this.disableAnimation,
+  });
+}
+
+class HideAllPopupsEvent extends RadiusClusterEvent {
+  final bool disableAnimation;
+
+  const HideAllPopupsEvent({required this.disableAnimation});
+}
+
+class HidePopupsWhereEvent extends RadiusClusterEvent {
+  final bool Function(Marker marker) test;
+  final bool disableAnimation;
+
+  const HidePopupsWhereEvent(
+    this.test, {
+    required this.disableAnimation,
+  });
+}
+
+class HidePopupsOnlyForEvent extends RadiusClusterEvent {
+  final List<Marker> markers;
+
+  final bool disableAnimation;
+
+  const HidePopupsOnlyForEvent(
+    this.markers, {
+    required this.disableAnimation,
+  });
+}
+
+class TogglePopupEvent extends RadiusClusterEvent {
+  final Marker marker;
+  final bool disableAnimation;
+
+  const TogglePopupEvent(
+    this.marker, {
+    required this.disableAnimation,
+  });
 }

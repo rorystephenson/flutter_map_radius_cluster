@@ -33,9 +33,9 @@ class SearchBoundaryCalculator {
     final visibleBounds = mapState.bounds;
     final corners = [
       visibleBounds.northWest,
-      visibleBounds.northEast!,
+      visibleBounds.northEast,
       visibleBounds.southEast,
-      visibleBounds.southWest!
+      visibleBounds.southWest
     ];
 
     for (final corner in corners) {

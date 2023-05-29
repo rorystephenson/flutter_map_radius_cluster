@@ -1,20 +1,20 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_radius_cluster/src/options/search_circle_options.dart';
 import 'package:flutter_map_radius_cluster/src/options/search_circle_style.dart';
 import 'package:flutter_map_radius_cluster/src/state/radius_cluster_state.dart';
 import 'package:provider/provider.dart';
 
-import '../map_calculator.dart';
 import 'search_radius_indicator.dart';
 
 class SearchCirclesOverlay extends StatelessWidget {
-  final MapCalculator mapCalculator;
+  final FlutterMapState mapState;
   final double radiusInM;
   final SearchCircleOptions options;
 
   const SearchCirclesOverlay({
     Key? key,
-    required this.mapCalculator,
+    required this.mapState,
     required this.radiusInM,
     required this.options,
   }) : super(key: key);
@@ -28,14 +28,14 @@ class SearchCirclesOverlay extends StatelessWidget {
         if (radiusClusterState.center != null)
           SearchRadiusIndicator(
             center: radiusClusterState.center!,
-            mapCalculator: mapCalculator,
+            mapState: mapState,
             radiusInM: radiusInM,
             style: _searchCircleStyle(radiusClusterState.searchState),
           ),
         if (radiusClusterState.searchState != RadiusSearchState.loading &&
             radiusClusterState.outsidePreviousSearchBoundary)
           SearchRadiusIndicator(
-            mapCalculator: mapCalculator,
+            mapState: mapState,
             radiusInM: radiusInM,
             style: options.nextSearchCircleStyle,
           ),

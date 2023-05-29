@@ -1,3 +1,39 @@
+## [3.0.0]
+
+This version includes two major changes. Dart 3.0.0 is now required and points which are too close
+to uncluster at maximum zoom can now be splayed. When a splay cluster is tapped the inner points
+are revealed.
+
+- FEATURE: Added clusterSplayDelegate to control cluster splaying. See the documentation for more
+           information. The example app has a new page to demonstrate splaying.
+- FEATURE: Added collapseSplayedClusters() to SuperclusterController. 
+- FEATURE: Added an assertion to check that the supercluster's maximum zoom is not higher than the
+  FlutterMap maxZoom (if set). There is no reason to have the supercluster maxZoom higher and it
+  breaks splay cluster behaviour.
+- FEATURE: Setting cluster data (Supercluster's extractClusterData) is now optional.
+- BREAKINGL Requires dart 3 and flutter 3.1.
+- BREAKING: Updated to kdbush 0.0.5.
+- BREAKING: Updated to supercluster 2.1.1.
+- BREAKING: Updated to flutter_map 4.0.0.
+- BREAKING: Updated flutter_map_marker_popup to 5.0.0, breaking changes:
+  - The popupBuilder, popupSnap and popupAnimation options from PopupOptions are now combined in to
+    a single option: popupDisplayOptions.
+  - PopupMarkerLayerOptions.rotationAlignmentFor has been replaced with a new rotateAlignment
+    extension method on AnchorAlign. So
+    PopupMarkerLayerOptions.rotationAlignmentFor(AnchorAlign.top) becomes
+    AnchorAlign.top.rotationAlignment.
+- BREAKING: Popups are now controlled via the RadiusClusterController. This is necessary to properly
+  support displaying popups for splayed markers.
+- BREAKING: The following marker rotation options have been removed, they should be set on the
+  markers themselves:
+  - rotate
+  - rotateOrigin
+  - rotateAlignment
+- BREAKING: RadiusClusterLayer's onClusterTap is now replaced with moveMap. The moveMap callback
+  defines how RadiusClusterLayer moves the map.
+- BREAKING: RadiusClusterController.moveToMarker's move option has been renamed to moveMap.
+
+
 ## [2.4.0]
 
  - BREAKING: Clusters no longer have a tap behaviour by default. Previously tapping a cluster
