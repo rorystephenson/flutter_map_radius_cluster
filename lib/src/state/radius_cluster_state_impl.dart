@@ -59,6 +59,13 @@ class RadiusClusterStateImpl with ChangeNotifier implements RadiusClusterState {
     );
   }
 
+  List<ImmutableLayerElement<Marker>> childrenOf(
+      ImmutableLayerCluster<Marker> cluster) {
+    if (_supercluster == null) return [];
+
+    return _supercluster!.childrenOf(cluster);
+  }
+
   @override
   RadiusSearchState get searchState {
     if (_supercluster != null) {

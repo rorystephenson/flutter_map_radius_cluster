@@ -1,6 +1,8 @@
 import 'package:flutter_map/plugin_api.dart';
 import 'package:supercluster/supercluster.dart';
 
+/// A helper class for making cluster marker count available whilst
+/// optionally encapsulating user defined data.
 class ClusterDataWithCount extends ClusterDataBase {
   final int markerCount;
 

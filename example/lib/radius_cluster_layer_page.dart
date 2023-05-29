@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_animations/flutter_map_animations.dart';
 import 'package:flutter_map_radius_cluster/flutter_map_radius_cluster.dart';
+import 'package:flutter_map_radius_cluster_example/main.dart';
 import 'package:kdbush/kdbush.dart';
 import 'package:latlong2/latlong.dart';
 
 class RadiusClusterLayerPage extends StatefulWidget {
+  static const route = 'radiusClusterLayerPage';
+
   const RadiusClusterLayerPage({Key? key}) : super(key: key);
 
   @override
@@ -19,12 +22,13 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
   late final AnimatedMapController _animatedMapController;
   late final RadiusClusterController _radiusClusterController;
 
-  bool _animateMovement = false;
+  bool _animateMovement = true;
 
   static const totalMarkers = 2000;
   final minLatLng = LatLng(49.8566, 1.3522);
   final maxLatLng = LatLng(58.3498, -10.2603);
 
+  late final List<Marker> markers;
   late final KDBush<Marker, double> _kdbush;
 
   int _errorCursor = 0;
@@ -43,7 +47,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
     final latStep = latitudeRange / stepsInEachDirection;
     final lonStep = longitudeRange / stepsInEachDirection;
 
-    final markers = <Marker>[];
+    markers = <Marker>[];
     for (var i = 0; i < stepsInEachDirection; i++) {
       for (var j = 0; j < stepsInEachDirection; j++) {
         final latLng = LatLng(
@@ -83,6 +87,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
       (minLatLng.longitude + maxLatLng.longitude) / 2,
     );
     return Scaffold(
+      drawer: buildDrawer(context, RadiusClusterLayerPage.route),
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(top: 130),
@@ -92,23 +97,27 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FloatingActionButton.extended(
+              heroTag: 'moveToRandom',
               icon: const Icon(Icons.location_pin),
               label: const Text("Move to random marker"),
               onPressed: () {
                 final randomMarker =
-                    _kdbush.points[Random().nextInt(_kdbush.points.length - 1)];
+                    markers[Random().nextInt(markers.length - 1)];
                 _radiusClusterController.moveToMarker(
                   MarkerMatcher.equalsMarker(randomMarker),
                   showPopup: true,
-                  move: !_animateMovement
+                  moveMap: !_animateMovement
                       ? null
                       : (center, zoom) => _animatedMapController.animateTo(
-                          dest: center, zoom: zoom),
+                            dest: center,
+                            zoom: zoom,
+                          ),
                 );
               },
             ),
             const SizedBox(height: 8),
             FloatingActionButton.extended(
+              heroTag: 'animateMovement',
               icon: const Icon(Icons.animation),
               label: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -144,6 +153,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
               (maxLatLng.longitude + minLatLng.longitude) / 2),
           zoom: 6,
           maxZoom: 15,
+          onTap: (_, __) => _radiusClusterController.hideAllPopups(),
         ),
         children: <Widget>[
           TileLayer(
@@ -157,9 +167,12 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
             fixedOverlayBuilder: _searchButton,
             initialCenter: initialLatLng,
             minimumSearchDistanceDifferenceInKm: 10,
-            onClusterTap: (cluster, center, zoom) {
+            moveMap: (center, zoom) {
               if (_animateMovement) {
-                _animatedMapController.animateTo(dest: center, zoom: zoom);
+                return _animatedMapController.animateTo(
+                  dest: center,
+                  zoom: zoom,
+                );
               } else {
                 _animatedMapController.move(center, zoom);
               }
@@ -170,33 +183,32 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
             clusterWidgetSize: const Size(40, 40),
             anchor: AnchorPos.align(AnchorAlign.center),
             popupOptions: PopupOptions(
-              popupBuilder: (context, marker) {
-                return Container(
-                  color: Colors.white,
-                  width: 200,
-                  height: 100,
-                  child: Text('Popup for marker at: ${marker.point}'),
-                );
-              },
+              popupDisplayOptions: PopupDisplayOptions(
+                builder: (context, marker) {
+                  return Container(
+                    color: Colors.white,
+                    width: 200,
+                    height: 100,
+                    child: Text('Popup for marker at: ${marker.point}'),
+                  );
+                },
+              ),
               selectedMarkerBuilder: (context, marker) => const Icon(
                 Icons.pin_drop,
                 color: Colors.red,
               ),
             ),
-            clusterBuilder: (context, clusterData) {
-              clusterData as ClusterDataWithCount;
-              return Container(
-                decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20.0),
-                    color: Colors.blue),
-                child: Center(
-                  child: Text(
-                    clusterData.markerCount.toString(),
-                    style: const TextStyle(color: Colors.white),
-                  ),
+            clusterBuilder: (context, clusterData) => Container(
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20.0),
+                  color: Colors.blue),
+              child: Center(
+                child: Text(
+                  (clusterData as ClusterDataWithCount).markerCount.toString(),
+                  style: const TextStyle(color: Colors.white),
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ],
       ),
@@ -272,7 +284,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
     final points = <Marker>[];
     for (final index in _kdbush.withinGeographicalRadius(
         center.longitude, center.latitude, radiusInKm)) {
-      points.add(_kdbush.points[index]);
+      points.add(markers[index]);
     }
 
     return SuperclusterImmutable<Marker>(

@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
+import 'package:flutter_map_radius_cluster/src/options/popup_options_impl.dart';
+import 'package:flutter_map_radius_cluster/src/splay/cluster_splay_delegate.dart';
+import 'package:flutter_map_radius_cluster/src/splay/spread_cluster_splay_delegate.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supercluster/supercluster.dart';
 
@@ -12,8 +15,11 @@ import 'radius_cluster_layer_impl.dart';
 import 'state/radius_cluster_scope.dart';
 import 'state/radius_cluster_state.dart';
 
+/// Builder for the cluster widget.
 typedef ClusterWidgetBuilder = Widget Function(
-    BuildContext context, ClusterDataBase? clusterData);
+  BuildContext context,
+  ClusterDataBase? clusterData,
+);
 
 typedef FixedOverlayBuilder = Widget Function(
   BuildContext context,
@@ -21,13 +27,12 @@ typedef FixedOverlayBuilder = Widget Function(
   RadiusClusterState radiusClusterState,
 );
 
-typedef ClusterTapHandler = void Function(
-  ImmutableLayerCluster<Marker> cluster,
-  LatLng center,
-  double expansionZoom,
-);
+/// See [RadiusClusterLayer.moveMap].
+typedef MoveMapCallback = FutureOr<void> Function(LatLng center, double zoom);
 
 class RadiusClusterLayer extends StatelessWidget {
+  static const popupNamespace = 'flutter_map_radius_cluster';
+
   /// The function which returns the clusters and markers for the given radius
   /// and search center. Do not handle errors that occur as they are captured
   /// and used to determine the button and search circle indicator states. Use
@@ -69,42 +74,29 @@ class RadiusClusterLayer extends StatelessWidget {
   /// The options for search circle in its various states.
   final SearchCircleOptions searchCircleOptions;
 
+  /// When tapping a cluster or moving to a [Marker] with
+  /// [RadiusClusterController]'s moveToMarker method this callback controls
+  /// if/how the movement is performed. The default is to move with no
+  /// animation.
+  ///
+  /// When moving to a splay cluster (see [clusterSplayDelegate]) or a [Marker]
+  /// inside a splay cluster the splaying will start once this callback
+  /// completes.
+  final MoveMapCallback? moveMap;
+
   /// Function to call when a Marker is tapped
   final void Function(Marker)? onMarkerTap;
-
-  /// Function to call when a cluster is tapped. Use this to zoom in to view
-  /// the cluster's Markers by zooming the map to the provided [expansionZoom].
-  final ClusterTapHandler? onClusterTap;
 
   /// Popup's options that show when tapping markers or via the PopupController.
   final PopupOptions? popupOptions;
 
-  /// If true markers will be counter rotated to the map rotation
-  final bool? rotate;
-
-  /// The origin of the coordinate system (relative to the upper left corner of
-  /// this render object) in which to apply the matrix.
-  ///
-  /// Setting an origin is equivalent to conjugating the transform matrix by a
-  /// translation. This property is provided just for convenience.
-  final Offset? rotateOrigin;
-
-  /// The alignment of the origin, relative to the size of the box.
-  ///
-  /// This is equivalent to setting an origin based on the size of the box.
-  /// If it is specified at the same time as the [rotateOrigin], both are applied.
-  ///
-  /// An [AlignmentDirectional.centerStart] value is the same as an [Alignment]
-  /// whose [Alignment.x] value is `-1.0` if [Directionality.of] returns
-  /// [TextDirection.ltr], and `1.0` if [Directionality.of] returns
-  /// [TextDirection.rtl].	 Similarly [AlignmentDirectional.centerEnd] is the
-  /// same as an [Alignment] whose [Alignment.x] value is `1.0` if
-  /// [Directionality.of] returns	 [TextDirection.ltr], and `-1.0` if
-  /// [Directionality.of] returns [TextDirection.rtl].
-  final AlignmentGeometry? rotateAlignment;
-
   /// Cluster size
   final Size clusterWidgetSize;
+
+  /// Splaying occurs when it is not possible to open a cluster because its
+  /// points are visible at a zoom higher than the max zoom. This delegate
+  /// controls the animation and style of the cluster splaying.
+  final ClusterSplayDelegate clusterSplayDelegate;
 
   /// Cluster anchor
   final AnchorPos? anchor;
@@ -122,13 +114,14 @@ class RadiusClusterLayer extends StatelessWidget {
     this.onError,
     SearchCircleOptions? searchCircleOptions,
     Color? nextSearchIndicatorColor,
+    this.moveMap,
     this.onMarkerTap,
-    this.onClusterTap,
     this.popupOptions,
-    this.rotate,
-    this.rotateOrigin,
-    this.rotateAlignment,
     this.clusterWidgetSize = const Size(30, 30),
+    this.clusterSplayDelegate = const SpreadClusterSplayDelegate(
+      duration: Duration(milliseconds: 300),
+      splayLineOptions: SplayLineOptions(),
+    ),
     this.anchor,
   })  : assert(initialClustersAndMarkers == null || initialCenter != null,
             'If initialClustersAndMarkers is provided initialCenter is required.'),
@@ -166,13 +159,11 @@ class RadiusClusterLayer extends StatelessWidget {
       minimumSearchDistanceDifferenceInKm: minimumSearchDistanceDifferenceInKm,
       onError: onError,
       searchCircleOptions: searchCircleOptions,
+      moveMap: moveMap,
       onMarkerTap: onMarkerTap,
-      onClusterTap: onClusterTap,
-      popupOptions: popupOptions,
-      rotate: rotate,
-      rotateOrigin: rotateOrigin,
-      rotateAlignment: rotateAlignment,
+      popupOptions: popupOptions as PopupOptionsImpl,
       clusterWidgetSize: clusterWidgetSize,
+      clusterSplayDelegate: clusterSplayDelegate,
       anchor: anchor,
     );
   }

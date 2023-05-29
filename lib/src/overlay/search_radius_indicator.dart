@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_radius_cluster/src/lat_lng_calc.dart';
-import 'package:flutter_map_radius_cluster/src/map_calculator.dart';
 import 'package:flutter_map_radius_cluster/src/options/search_circle_style.dart';
 import 'package:flutter_map_radius_cluster/src/overlay/fade_animation.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,13 +9,13 @@ import 'search_circle_painter.dart';
 
 class SearchRadiusIndicator extends StatelessWidget {
   final LatLng? center;
-  final MapCalculator mapCalculator;
+  final FlutterMapState mapState;
   final double radiusInM;
   final SearchCircleStyle style;
 
   const SearchRadiusIndicator({
     super.key,
-    required this.mapCalculator,
+    required this.mapState,
     required this.radiusInM,
     required this.style,
 
@@ -25,13 +25,13 @@ class SearchRadiusIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final center = this.center ?? mapCalculator.center;
-    final centerPixel = mapCalculator.project(center);
-    final circleOffset = centerPixel - mapCalculator.pixelOrigin;
+    final center = this.center ?? mapState.center;
+    final centerPixel = mapState.project(center);
+    final circleOffset = centerPixel - mapState.pixelOrigin;
 
     final rightEdgeLatLng = LatLngCalc.offset(center, radiusInM, 90);
     final pixelRadius =
-        (mapCalculator.project(rightEdgeLatLng).x - centerPixel.x).toDouble();
+        (mapState.project(rightEdgeLatLng).x - centerPixel.x).toDouble();
 
     return Positioned(
       left: circleOffset.x.toDouble() - pixelRadius - style.borderWidth,
