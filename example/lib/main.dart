@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map_radius_cluster_example/radius_cluster_layer_page.dart';
+import 'package:flutter_map_radius_cluster_example/basic_example_page.dart';
+import 'package:flutter_map_radius_cluster_example/full_example_page.dart';
 import 'package:flutter_map_radius_cluster_example/splay_cluster_page.dart';
 
 void main() => runApp(const MyApp());
@@ -15,10 +16,10 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const RadiusClusterLayerPage(),
+      home: const BasicExamplePage(),
       routes: <String, WidgetBuilder>{
-        RadiusClusterLayerPage.route: (context) =>
-            const RadiusClusterLayerPage(),
+        BasicExamplePage.route: (context) => const BasicExamplePage(),
+        FullExamplePage.route: (context) => const FullExamplePage(),
         SplayClusterPage.route: (context) => const SplayClusterPage(),
       },
     );
@@ -31,18 +32,24 @@ Drawer buildDrawer(BuildContext context, String currentRoute) {
       children: <Widget>[
         const DrawerHeader(
           child: Center(
-            child: Text('Radius Cluster Examples'),
+            child: Text('Flutter Map Radius Cluster Examples'),
           ),
         ),
         _buildMenuItem(
           context,
-          const Text('Basic Example'),
-          RadiusClusterLayerPage.route,
+          const Text(BasicExamplePage.title),
+          BasicExamplePage.route,
           currentRoute,
         ),
         _buildMenuItem(
           context,
-          const Text('Splay Cluster Example'),
+          const Text(FullExamplePage.title),
+          FullExamplePage.route,
+          currentRoute,
+        ),
+        _buildMenuItem(
+          context,
+          const Text(SplayClusterPage.title),
           SplayClusterPage.route,
           currentRoute,
         ),

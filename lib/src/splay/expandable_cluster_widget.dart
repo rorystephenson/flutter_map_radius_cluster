@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_marker_popup/extension_api.dart';
 import 'package:flutter_map_radius_cluster/src/cluster_widget.dart';
-import 'package:flutter_map_radius_cluster/src/flutter_map_state_extension.dart';
 import 'package:flutter_map_radius_cluster/src/layer_element_extension.dart';
+import 'package:flutter_map_radius_cluster/src/map_camera_extension.dart';
 import 'package:flutter_map_radius_cluster/src/marker_widget.dart';
 import 'package:flutter_map_radius_cluster/src/popup_spec_builder.dart';
 import 'package:flutter_map_radius_cluster/src/radius_cluster_layer.dart';
 import 'package:flutter_map_radius_cluster/src/splay/expanded_cluster.dart';
 
 class ExpandableClusterWidget extends StatelessWidget {
-  final FlutterMapState mapState;
+  final MapCamera camera;
   final ExpandedCluster expandedCluster;
   final ClusterWidgetBuilder builder;
   final Size size;
-  final AnchorPos? anchorPos;
+  final Anchor anchor;
   final Widget Function(BuildContext, Marker) markerBuilder;
   final void Function(PopupSpec popupSpec) onMarkerTap;
   final VoidCallback onCollapse;
@@ -22,16 +22,16 @@ class ExpandableClusterWidget extends StatelessWidget {
 
   ExpandableClusterWidget({
     Key? key,
-    required this.mapState,
+    required this.camera,
     required this.expandedCluster,
     required this.builder,
     required this.size,
-    required this.anchorPos,
+    required this.anchor,
     required this.markerBuilder,
     required this.onMarkerTap,
     required this.onCollapse,
   })  : clusterPixelPosition =
-            mapState.getPixelOffset(expandedCluster.layerCluster.latLng),
+            camera.getPixelOffset(expandedCluster.layerCluster.latLng),
         super(key: ValueKey('expandable-${expandedCluster.layerCluster.uuid}'));
 
   @override
@@ -40,7 +40,7 @@ class ExpandableClusterWidget extends StatelessWidget {
       animation: expandedCluster.animation,
       builder: (context, _) {
         final displacedMarkerOffsets = expandedCluster.displacedMarkerOffsets(
-          mapState,
+          camera,
           clusterPixelPosition,
         );
         final splayDecoration = expandedCluster.splayDecoration(
@@ -72,17 +72,17 @@ class ExpandableClusterWidget extends StatelessWidget {
                       expandedCluster.minimumVisibleZoom,
                     ),
                   ),
-                  mapRotationRad: mapState.rotationRad,
+                  mapRotationRad: camera.rotationRad,
                 ),
               ),
               ClusterWidget(
-                mapState: mapState,
+                camera: camera,
                 cluster: expandedCluster.layerCluster,
                 builder: (context, data) =>
                     expandedCluster.buildCluster(context, builder),
                 onTap: expandedCluster.isExpanded ? onCollapse : () {},
                 size: size,
-                anchorPos: anchorPos,
+                anchor: anchor,
               ),
             ],
           ),

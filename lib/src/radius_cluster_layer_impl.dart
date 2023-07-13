@@ -5,73 +5,70 @@ import 'package:async/async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_marker_popup/extension_api.dart';
-import 'package:flutter_map_radius_cluster/src/cluster_widget.dart';
+import 'package:flutter_map_radius_cluster/src/clustered_element_layer.dart';
 import 'package:flutter_map_radius_cluster/src/controller/marker_matcher.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_controller_impl.dart';
 import 'package:flutter_map_radius_cluster/src/controller/radius_cluster_event.dart';
-import 'package:flutter_map_radius_cluster/src/flutter_map_state_extension.dart';
 import 'package:flutter_map_radius_cluster/src/lat_lng_calc.dart';
 import 'package:flutter_map_radius_cluster/src/layer_element_extension.dart';
-import 'package:flutter_map_radius_cluster/src/marker_widget.dart';
+import 'package:flutter_map_radius_cluster/src/map_camera_extension.dart';
 import 'package:flutter_map_radius_cluster/src/options/popup_options_impl.dart';
 import 'package:flutter_map_radius_cluster/src/overlay/search_circles_overlay.dart';
 import 'package:flutter_map_radius_cluster/src/popup_spec_builder.dart';
 import 'package:flutter_map_radius_cluster/src/splay/cluster_splay_delegate.dart';
-import 'package:flutter_map_radius_cluster/src/splay/expandable_cluster_widget.dart';
 import 'package:flutter_map_radius_cluster/src/splay/expanded_cluster.dart';
 import 'package:flutter_map_radius_cluster/src/splay/expanded_cluster_manager.dart';
+import 'package:flutter_map_radius_cluster/src/state/inherited_radius_cluster_scope.dart';
+import 'package:flutter_map_radius_cluster/src/state/radius_cluster_state_extension.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
 import 'package:supercluster/supercluster.dart';
 
-import 'options/search_circle_options.dart';
+import 'options/search_circle_styles.dart';
 import 'overlay/fixed_overlay.dart';
 import 'radius_cluster_layer.dart';
-import 'search_boundary_calculator.dart';
 import 'state/radius_cluster_state.dart';
-import 'state/radius_cluster_state_impl.dart';
 
 class RadiusClusterLayerImpl extends StatefulWidget {
-  final FlutterMapState mapState;
-  final RadiusClusterState initialRadiusClusterState;
+  final MapCamera camera;
   final Stream<void> stream;
 
   final Future<SuperclusterImmutable<Marker>> Function(
       double radius, LatLng center) search;
   final ClusterWidgetBuilder clusterBuilder;
+  final MapController mapController;
   final RadiusClusterController? controller;
   final double radiusInKm;
   final FixedOverlayBuilder? fixedOverlayBuilder;
   final double? minimumSearchDistanceDifferenceInKm;
   final Function(dynamic error, StackTrace stackTrace)? onError;
-  final SearchCircleOptions searchCircleOptions;
+  final SearchCircleStyles searchCircleStyles;
   final MoveMapCallback? moveMap;
   final void Function(Marker)? onMarkerTap;
   final PopupOptionsImpl? popupOptions;
   final Size clusterWidgetSize;
   final ClusterSplayDelegate clusterSplayDelegate;
-  final AnchorPos? anchor;
+  final Anchor clusterAnchor;
 
   RadiusClusterLayerImpl({
     Key? key,
-    required this.mapState,
-    required this.initialRadiusClusterState,
+    required this.camera,
     required this.search,
     required this.clusterBuilder,
+    required this.mapController,
     this.controller,
     required this.radiusInKm,
     this.fixedOverlayBuilder,
     this.minimumSearchDistanceDifferenceInKm,
     this.onError,
-    required this.searchCircleOptions,
+    required this.searchCircleStyles,
     this.moveMap,
     this.onMarkerTap,
     this.popupOptions,
     required this.clusterWidgetSize,
     required this.clusterSplayDelegate,
-    this.anchor,
-  })  : stream = mapState.mapController.mapEventStream,
+    required this.clusterAnchor,
+  })  : stream = mapController.mapEventStream,
         super(key: key);
 
   @override
@@ -80,10 +77,9 @@ class RadiusClusterLayerImpl extends StatefulWidget {
 
 class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     with TickerProviderStateMixin {
+  bool _initialized = false;
   late final RadiusClusterControllerImpl _controller;
   late final StreamSubscription<RadiusClusterEvent> _controllerSubscription;
-  late final RadiusClusterStateImpl _radiusClusterStateImpl;
-  late final SearchBoundaryCalculator _searchBoundaryCalculator;
 
   late final ExpandedClusterManager _expandedClusterManager;
 
@@ -114,29 +110,27 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
       onRemoved: (expandedClusters) => setState(() {}),
     );
 
-    _searchBoundaryCalculator = SearchBoundaryCalculator(
-      mapState: widget.mapState,
-      radiusInKm: widget.radiusInKm,
-      minimumSearchDistanceDifferenceInKm:
-          widget.minimumSearchDistanceDifferenceInKm,
-    );
-
-    _radiusClusterStateImpl =
-        widget.initialRadiusClusterState as RadiusClusterStateImpl;
-
     _controller = widget.controller != null
         ? widget.controller as RadiusClusterControllerImpl
         : RadiusClusterControllerImpl(createdInternally: true);
     _controllerSubscription = _controller.stream.listen(_handleEvent);
 
     _movementStreamSubscription = widget.stream.listen((_) => _onMove());
+  }
 
-    if (_radiusClusterStateImpl.center != null &&
-        _radiusClusterStateImpl.supercluster == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _searchAt(_radiusClusterStateImpl.center ?? widget.mapState.center);
-      });
+  @override
+  void didChangeDependencies() {
+    if (!_initialized) {
+      final radiusClusterState = RadiusClusterState.of(context, listen: false);
+      if (radiusClusterState.center != null &&
+          radiusClusterState.supercluster == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _searchAt(radiusClusterState.center ?? widget.camera.center);
+        });
+      }
+      _initialized = true;
     }
+    super.didChangeDependencies();
   }
 
   @override
@@ -150,31 +144,31 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
 
   @override
   Widget build(BuildContext context) {
-    if (_radiusClusterStateImpl.supercluster != null) {
-      final superclusterMaxZoom = _radiusClusterStateImpl.supercluster!.maxZoom;
-      final mapMaxZoom = widget.mapState.options.maxZoom;
-      assert(
-        mapMaxZoom == null || superclusterMaxZoom <= mapMaxZoom,
-        'The Supercluster\'s maxZoom ($superclusterMaxZoom) must not be '
-        'greater than FlutterMap\'s maxZoom ($mapMaxZoom). Either increase '
-        'the maxZoom of your Supercluster or remove FlutterMap\'s maxZoom.',
-      );
-    }
     final popupOptions = widget.popupOptions;
 
     return _wrapWithPopupStateIfPopupsEnabled(
       (popupState) => Stack(
         children: [
-          ..._buildClustersAndMarkers(),
+          ClusteredElementLayer(
+            camera: widget.camera,
+            popupOptions: popupOptions,
+            clusterWidgetSize: widget.clusterWidgetSize,
+            popupState: popupState,
+            expandedClusterManager: _expandedClusterManager,
+            clusterBuilder: widget.clusterBuilder,
+            onMarkerTap: _onMarkerTap,
+            onClusterTap: _onClusterTap,
+            clusterAnchor: widget.clusterAnchor,
+          ),
           SearchCirclesOverlay(
-            mapState: widget.mapState,
+            camera: widget.camera,
             radiusInM: widget.radiusInKm * 1000,
-            options: widget.searchCircleOptions,
+            options: widget.searchCircleStyles,
           ),
           if (widget.fixedOverlayBuilder != null)
             FixedOverlay(
               controller: _controller,
-              mapState: widget.mapState,
+              camera: widget.camera,
               searchButtonBuilder: widget.fixedOverlayBuilder!,
             ),
           if (popupOptions?.popupDisplayOptions != null)
@@ -195,121 +189,19 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
       builder: (context, popupState) {
         _popupState = popupState;
         if (widget.popupOptions!.selectedMarkerBuilder != null) {
-          context.watch<PopupState>();
+          PopupState.of(context, listen: true);
         }
         return builder(popupState);
       },
     );
   }
 
-  Iterable<Widget> _buildClustersAndMarkers() sync* {
-    final paddedBounds =
-        widget.mapState.paddedMapBounds(widget.clusterWidgetSize);
-
-    final selectedMarkerBuilder =
-        widget.popupOptions != null && _popupState!.selectedMarkers.isNotEmpty
-            ? widget.popupOptions!.selectedMarkerBuilder
-            : null;
-    List<ImmutableLayerPoint<Marker>> selectedLayerPoints = [];
-    final List<ImmutableLayerCluster<Marker>> clusters = [];
-
-    for (final layerElement in _radiusClusterStateImpl.getLayerElementsIn(
-      paddedBounds,
-      widget.mapState.zoom.ceil(),
-    )) {
-      if (layerElement is ImmutableLayerCluster<Marker>) {
-        clusters.add(layerElement);
-        continue;
-      }
-      layerElement as ImmutableLayerPoint<Marker>;
-      if (selectedMarkerBuilder != null &&
-          _popupState!.selectedMarkers.contains(layerElement.originalPoint)) {
-        selectedLayerPoints.add(layerElement);
-        continue;
-      }
-      yield _buildMarker(layerElement);
-    }
-
-    // Build selected markers.
-    for (final selectedLayerPoint in selectedLayerPoints) {
-      yield _buildMarker(selectedLayerPoint, selected: true);
-    }
-
-    // Build non expanded clusters.
-    for (final cluster in clusters) {
-      if (_expandedClusterManager.contains(cluster)) continue;
-      yield _buildCluster(cluster);
-    }
-
-    // Build expanded clusters.
-    for (final expandedCluster in _expandedClusterManager.all) {
-      yield _buildExpandedCluster(expandedCluster);
-    }
-  }
-
-  Widget _buildMarker(
-    ImmutableLayerPoint<Marker> layerPoint, {
-    bool selected = false,
-  }) {
-    final marker = layerPoint.originalPoint;
-
-    final markerBuilder = !selected
-        ? marker.builder
-        : (context) =>
-            widget.popupOptions!.selectedMarkerBuilder!(context, marker);
-
-    return MarkerWidget(
-      mapState: widget.mapState,
-      marker: marker,
-      markerBuilder: markerBuilder,
-      onTap: () => _onMarkerTap(PopupSpecBuilder.forLayerPoint(layerPoint)),
-    );
-  }
-
-  Widget _buildCluster(ImmutableLayerCluster<Marker> cluster) {
-    return ClusterWidget(
-      mapState: widget.mapState,
-      cluster: cluster,
-      builder: widget.clusterBuilder,
-      onTap: () => _onClusterTap(cluster),
-      size: widget.clusterWidgetSize,
-      anchorPos: widget.anchor,
-    );
-  }
-
-  Widget _buildExpandedCluster(ExpandedCluster expandedCluster) {
-    final selectedMarkerBuilder = widget.popupOptions?.selectedMarkerBuilder;
-    final Widget Function(BuildContext context, Marker marker) markerBuilder =
-        selectedMarkerBuilder == null
-            ? ((context, marker) => marker.builder(context))
-            : ((context, marker) =>
-                _popupState?.selectedMarkers.contains(marker) == true
-                    ? selectedMarkerBuilder(context, marker)
-                    : marker.builder(context));
-
-    return ExpandableClusterWidget(
-      mapState: widget.mapState,
-      expandedCluster: expandedCluster,
-      builder: widget.clusterBuilder,
-      size: widget.clusterWidgetSize,
-      anchorPos: widget.anchor,
-      markerBuilder: markerBuilder,
-      onCollapse: () {
-        widget.popupOptions?.popupController
-            .hidePopupsOnlyFor(expandedCluster.markers.toList());
-        _expandedClusterManager
-            .collapseThenRemove(expandedCluster.layerCluster);
-      },
-      onMarkerTap: _onMarkerTap,
-    );
-  }
-
   bool _canZoomHigherThan(int zoom) =>
-      widget.mapState.options.maxZoom == null ||
-      widget.mapState.options.maxZoom! > zoom;
+      widget.camera.maxZoom == null || widget.camera.maxZoom! > zoom;
 
   void _onClusterTap(ImmutableLayerCluster<Marker> layerCluster) async {
-    final supercluster = _radiusClusterStateImpl.supercluster;
+    final radiusClusterState = RadiusClusterState.of(context, listen: false);
+    final supercluster = radiusClusterState.supercluster;
     if (supercluster == null) return;
 
     if (!_canZoomHigherThan(layerCluster.highestZoom)) {
@@ -322,8 +214,8 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
         layerCluster,
         () => ExpandedCluster(
           vsync: this,
-          mapState: widget.mapState,
-          layerPoints: _radiusClusterStateImpl
+          camera: widget.camera,
+          layerPoints: radiusClusterState
               .childrenOf(layerCluster)
               .cast<LayerPoint<Marker>>(),
           layerCluster: layerCluster,
@@ -344,16 +236,15 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     double zoom, {
     FutureOr<void> Function(LatLng center, double zoom)? moveMapOverride,
   }) {
-    if (center == widget.mapState.center && zoom == widget.mapState.zoom) {
+    if (center == widget.camera.center && zoom == widget.camera.zoom) {
       return Future.value();
     }
 
     final moveMap = moveMapOverride ??
         widget.moveMap ??
-        (center, zoom) => widget.mapState.move(
+        (center, zoom) => widget.mapController.move(
               center,
               zoom,
-              source: MapEventSource.custom,
             );
 
     return moveMap.call(center, zoom);
@@ -380,12 +271,25 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
   }
 
   void _onMove() {
-    _radiusClusterStateImpl.onMove(
-      outsidePreviousSearchBoundary: _searchBoundaryCalculator
-          .outsidePreviousSearchBoundary(_radiusClusterStateImpl.center),
+    final radiusClusterState = RadiusClusterState.of(context, listen: false);
+    final outsidePreviousSearchBoundary =
+        widget.camera.outsidePreviousSearchBoundary(
+      previousSearchCenter: radiusClusterState.center,
+      radiusInKm: widget.radiusInKm,
+      minimumSearchDistanceDifferenceInKm:
+          widget.minimumSearchDistanceDifferenceInKm,
     );
+    if (radiusClusterState.outsidePreviousSearchBoundary !=
+        outsidePreviousSearchBoundary) {
+      InheritedRadiusClusterScope.of(context, listen: false)
+          .setRadiusClusterState(
+        radiusClusterState.withOutsidePreviousSearchBoundary(
+          outsidePreviousSearchBoundary,
+        ),
+      );
+    }
 
-    final zoom = widget.mapState.zoom.ceil();
+    final zoom = widget.camera.zoom.ceil();
 
     if (_lastMovementZoom == null || zoom < _lastMovementZoom!) {
       _expandedClusterManager.removeIfZoomGreaterThan(zoom);
@@ -394,25 +298,35 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     _lastMovementZoom = zoom;
   }
 
-  Future<SuperclusterImmutable?> _searchAt(LatLng center) async {
+  Future<SuperclusterImmutable<Marker>?> _searchAt(LatLng center) async {
     widget.popupOptions?.popupController.hideAllPopups();
-    _radiusClusterStateImpl.initiateSearch(
-      center,
-      outsidePreviousSearchBoundary: _searchBoundaryCalculator
-          .outsidePreviousSearchBoundary(_radiusClusterStateImpl.center),
+    var radiusClusterState = RadiusClusterState.of(context, listen: false);
+    final outsidePreviousSearchBoundary =
+        widget.camera.outsidePreviousSearchBoundary(
+      previousSearchCenter: radiusClusterState.center,
+      radiusInKm: widget.radiusInKm,
+      minimumSearchDistanceDifferenceInKm:
+          widget.minimumSearchDistanceDifferenceInKm,
     );
+    radiusClusterState = RadiusClusterState.newSearch(
+      center: center,
+      outsidePreviousSearchBoundary: outsidePreviousSearchBoundary,
+    );
+    radiusClusterState = _setRadiusClusterState(radiusClusterState);
 
     _cancelableSearchOperation?.cancel();
     try {
       _cancelableSearchOperation = CancelableOperation.fromFuture(
           widget.search(widget.radiusInKm, center));
       final result = await _cancelableSearchOperation!.value;
-      _radiusClusterStateImpl.setSearchResult(result);
+      radiusClusterState = radiusClusterState.withSearchResult(result);
+      _setRadiusClusterState(radiusClusterState);
 
       setState(() {});
       return result;
     } catch (error, stackTrace) {
-      _radiusClusterStateImpl.setSearchErrored();
+      radiusClusterState = radiusClusterState.withSearchErrored();
+      _setRadiusClusterState(radiusClusterState);
       if (widget.onError == null) rethrow;
       widget.onError!(error, stackTrace);
 
@@ -422,9 +336,9 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
   }
 
   ImmutableLayerPoint<Marker>? _findMarkerInCurrentSearchResults(
+    SuperclusterImmutable<Marker>? supercluster,
     MarkerMatcher markerMatcher,
   ) {
-    final supercluster = _radiusClusterStateImpl.supercluster;
     if (supercluster == null) return null;
 
     final latLng = markerMatcher.point;
@@ -453,40 +367,58 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     move(LatLng center, double zoom) =>
         _moveMapIfNotAt(center, zoom, moveMapOverride: moveMap);
 
-    ImmutableLayerPoint<Marker>? foundLayerPoint =
-        _findMarkerInCurrentSearchResults(markerMatcher);
+    final radiusClusterState = RadiusClusterState.of(context, listen: false);
+    final outsideCurrentSearchBounds = _outsideCurrentSearchBounds(
+      radiusClusterState,
+      markerMatcher.point,
+    );
+    SuperclusterImmutable<Marker>? supercluster =
+        radiusClusterState.supercluster;
+    ImmutableLayerPoint<Marker>? foundLayerPoint;
 
-    if (_outsideCurrentSearchBounds(markerMatcher.point)) {
-      move(markerMatcher.point, widget.mapState.zoom);
-      await _searchAt(markerMatcher.point);
-      foundLayerPoint = _findMarkerInCurrentSearchResults(markerMatcher);
+    if (outsideCurrentSearchBounds) {
+      move(markerMatcher.point, widget.camera.zoom);
+      supercluster = await _searchAt(markerMatcher.point);
+      if (supercluster == null) return;
+      foundLayerPoint =
+          _findMarkerInCurrentSearchResults(supercluster, markerMatcher);
       if (foundLayerPoint == null) return;
     } else {
-      foundLayerPoint = _findMarkerInCurrentSearchResults(markerMatcher);
-      if (foundLayerPoint == null) {
-        move(markerMatcher.point, widget.mapState.zoom);
-        await _searchAt(markerMatcher.point);
-        foundLayerPoint = _findMarkerInCurrentSearchResults(markerMatcher);
+      foundLayerPoint = _findMarkerInCurrentSearchResults(
+        supercluster,
+        markerMatcher,
+      );
+      if (supercluster == null || foundLayerPoint == null) {
+        move(markerMatcher.point, widget.camera.zoom);
+        supercluster = await _searchAt(markerMatcher.point);
+        if (supercluster == null) return;
+        foundLayerPoint =
+            _findMarkerInCurrentSearchResults(supercluster, markerMatcher);
         if (foundLayerPoint == null) return;
       }
     }
 
-    _moveToLayerPoint(foundLayerPoint, showPopup: showPopup, move: move);
+    _moveToLayerPoint(
+      supercluster,
+      foundLayerPoint,
+      showPopup: showPopup,
+      move: move,
+    );
   }
 
-  bool _outsideCurrentSearchBounds(LatLng latLng) =>
-      _radiusClusterStateImpl.supercluster == null ||
-      _radiusClusterStateImpl.center == null ||
-      LatLngCalc.distanceInM(_radiusClusterStateImpl.center!, latLng) / 1000.0 >
+  bool _outsideCurrentSearchBounds(
+          RadiusClusterState radiusClusterState, LatLng latLng) =>
+      radiusClusterState.supercluster == null ||
+      radiusClusterState.center == null ||
+      LatLngCalc.distanceInM(radiusClusterState.center!, latLng) / 1000.0 >
           widget.radiusInKm;
 
   Future<void> _moveToLayerPoint(
+    SuperclusterImmutable<Marker> supercluster,
     ImmutableLayerPoint<Marker> layerPoint, {
     required bool showPopup,
     required FutureOr<void> Function(LatLng center, double zoom) move,
   }) async {
-    final supercluster = _radiusClusterStateImpl.supercluster!;
-
     if (!_canZoomHigherThan(layerPoint.lowestZoom - 1)) {
       await _moveToSplayClusterMarker(
         supercluster: supercluster,
@@ -497,7 +429,7 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     } else {
       await move(
         layerPoint.latLng,
-        max(layerPoint.lowestZoom.toDouble(), widget.mapState.zoom),
+        max(layerPoint.lowestZoom.toDouble(), widget.camera.zoom),
       );
       if (showPopup) {
         _selectMarker(PopupSpecBuilder.forLayerPoint(layerPoint));
@@ -524,7 +456,7 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     // Shorthand for creating an ExpandedCluster.
     createExpandedCluster() => ExpandedCluster(
           vsync: this,
-          mapState: widget.mapState,
+          camera: widget.camera,
           layerPoints:
               supercluster.childrenOf(layerCluster).cast<LayerPoint<Marker>>(),
           layerCluster: layerCluster,
@@ -544,7 +476,7 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
     // Move to the DisplacedMarker.
     await move(
       displacedMarker.displacedPoint,
-      max(widget.mapState.zoom, layerPoint.lowestZoom - 0.99999),
+      max(widget.camera.zoom, layerPoint.lowestZoom - 0.99999),
     );
 
     // Determine the ExpandedCluster after movement, either:
@@ -574,18 +506,20 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
   void _handleEvent(RadiusClusterEvent event) async {
     switch (event) {
       case SearchAtCurrentCenterEvent():
-        _searchAt(widget.mapState.center);
+        _searchAt(widget.camera.center);
       case SearchAtPositionEvent():
         _searchAt(event.center);
       case CollapseSplayedClustersEvent():
         _expandedClusterManager.collapseThenRemoveAll();
       case ShowPopupsAlsoForEvent():
         if (widget.popupOptions == null) return;
-        if (_radiusClusterStateImpl.supercluster == null) return;
+        final radiusClusterState =
+            RadiusClusterState.of(context, listen: false);
+        if (radiusClusterState.supercluster == null) return;
         widget.popupOptions?.popupController.showPopupsAlsoForSpecs(
           PopupSpecBuilder.buildList(
-            supercluster: _radiusClusterStateImpl.supercluster!,
-            zoom: widget.mapState.zoom.ceil(),
+            supercluster: radiusClusterState.supercluster!,
+            zoom: widget.camera.zoom.ceil(),
             canZoomHigherThan: _canZoomHigherThan,
             markers: event.markers,
             expandedClusters: _expandedClusterManager.all,
@@ -600,11 +534,13 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
         );
       case ShowPopupsOnlyForEvent():
         if (widget.popupOptions == null) return;
-        if (_radiusClusterStateImpl.supercluster == null) return;
+        final radiusClusterState =
+            RadiusClusterState.of(context, listen: false);
+        if (radiusClusterState.supercluster == null) return;
         widget.popupOptions?.popupController.showPopupsOnlyForSpecs(
           PopupSpecBuilder.buildList(
-            supercluster: _radiusClusterStateImpl.supercluster!,
-            zoom: widget.mapState.zoom.ceil(),
+            supercluster: radiusClusterState.supercluster!,
+            zoom: widget.camera.zoom.ceil(),
             canZoomHigherThan: _canZoomHigherThan,
             markers: event.markers,
             expandedClusters: _expandedClusterManager.all,
@@ -630,10 +566,12 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
         );
       case TogglePopupEvent():
         if (widget.popupOptions == null) return;
-        if (_radiusClusterStateImpl.supercluster == null) return;
+        final radiusClusterState =
+            RadiusClusterState.of(context, listen: false);
+        if (radiusClusterState.supercluster == null) return;
         final popupSpec = PopupSpecBuilder.build(
-          supercluster: _radiusClusterStateImpl.supercluster!,
-          zoom: widget.mapState.zoom.ceil(),
+          supercluster: radiusClusterState.supercluster!,
+          zoom: widget.camera.zoom.ceil(),
           canZoomHigherThan: _canZoomHigherThan,
           marker: event.marker,
           expandedClusters: _expandedClusterManager.all,
@@ -644,5 +582,13 @@ class _RadiusClusterLayerImplState extends State<RadiusClusterLayerImpl>
           disableAnimation: event.disableAnimation,
         );
     }
+  }
+
+  RadiusClusterState _setRadiusClusterState(
+    RadiusClusterState radiusClusterState,
+  ) {
+    InheritedRadiusClusterScope.of(context, listen: false)
+        .setRadiusClusterState(radiusClusterState);
+    return radiusClusterState;
   }
 }

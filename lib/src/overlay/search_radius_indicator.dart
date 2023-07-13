@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
-import 'package:flutter_map_radius_cluster/src/lat_lng_calc.dart';
 import 'package:flutter_map_radius_cluster/src/options/search_circle_style.dart';
 import 'package:flutter_map_radius_cluster/src/overlay/fade_animation.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,13 +8,13 @@ import 'search_circle_painter.dart';
 
 class SearchRadiusIndicator extends StatelessWidget {
   final LatLng? center;
-  final FlutterMapState mapState;
+  final MapCamera camera;
   final double radiusInM;
   final SearchCircleStyle style;
 
   const SearchRadiusIndicator({
     super.key,
-    required this.mapState,
+    required this.camera,
     required this.radiusInM,
     required this.style,
 
@@ -25,35 +24,29 @@ class SearchRadiusIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final center = this.center ?? mapState.center;
-    final centerPixel = mapState.project(center);
-    final circleOffset = centerPixel - mapState.pixelOrigin;
-
-    final rightEdgeLatLng = LatLngCalc.offset(center, radiusInM, 90);
-    final pixelRadius =
-        (mapState.project(rightEdgeLatLng).x - centerPixel.x).toDouble();
+    final center = this.center ?? camera.center;
 
     return Positioned(
-      left: circleOffset.x.toDouble() - pixelRadius - style.borderWidth,
-      top: circleOffset.y.toDouble() - pixelRadius - style.borderWidth,
-      child: style.fadeAnimation == null
-          ? _searchCircle(pixelRadius)
-          : FadeAnimation(
-              options: style.fadeAnimation!,
-              child: _searchCircle(pixelRadius),
-            ),
+      left: 0,
+      top: 0,
+      child: _wrapWithFadeIfEnabled(
+        CustomPaint(
+          foregroundPainter: SearchCirclePainter(
+            camera: camera,
+            radiusInM: radiusInM,
+            center: center,
+            style: style,
+          ),
+          size: Size(camera.size.x, camera.size.y),
+        ),
+      ),
     );
   }
 
-  Widget _searchCircle(double pixelRadius) {
-    final pixelDiameter = pixelRadius * 2 + style.borderWidth * 2;
-    return CustomPaint(
-      foregroundPainter: SearchCirclePainter(
-        pixelRadius: pixelRadius,
-        borderColor: style.borderColor,
-        borderWidth: style.borderWidth,
-      ),
-      size: Size(pixelDiameter, pixelDiameter),
-    );
-  }
+  Widget _wrapWithFadeIfEnabled(Widget child) => style.fadeAnimation == null
+      ? child
+      : FadeAnimation(
+          options: style.fadeAnimation!,
+          child: child,
+        );
 }

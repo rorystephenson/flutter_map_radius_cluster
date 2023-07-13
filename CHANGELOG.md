@@ -1,3 +1,20 @@
+## [3.1.0-dev.1]
+
+- FEATURE: flutter_map 6.0.1-dev.1
+- FEATURE: supercluster 3.0.1
+- FEATURE: kdbush 0.1.0
+- FEATURE: Re-added the ability to fill the search circle. This was accidentally removed in a
+  previous version.
+- BUGFIX: The search circle indicator is now considerably more accurate. It uses the map CRS and
+  haversine distance to project the search radius on to the map. If other distance measures are
+  required (e.g. Vincenty) please open an issue.
+- BUGFIX: Omitting the PopupController no longer causes an exception.
+- DEPRECATION: RadiusClusterLayer's anchor parameter has been renamed to clusterAnchor for clarity.
+- DEPRECATION: RadiusClusterLayer's searchCircleOptions has been renamed to searchCircleStyles for
+  clarity.
+- DEPRECATION: SearchCircleOptions has been renamed to SearchCircleStyles for clarity.
+- CHORE: Tidied up example app, added demo gif.
+
 ## [3.0.0]
 
 This version includes two major changes. Dart 3.0.0 is now required and points which are too close
@@ -5,58 +22,57 @@ to uncluster at maximum zoom can now be splayed. When a splay cluster is tapped 
 are revealed.
 
 - FEATURE: Added clusterSplayDelegate to control cluster splaying. See the documentation for more
-           information. The example app has a new page to demonstrate splaying.
-- FEATURE: Added collapseSplayedClusters() to SuperclusterController. 
+  information. The example app has a new page to demonstrate splaying.
+- FEATURE: Added collapseSplayedClusters() to SuperclusterController.
 - FEATURE: Added an assertion to check that the supercluster's maximum zoom is not higher than the
   FlutterMap maxZoom (if set). There is no reason to have the supercluster maxZoom higher and it
   breaks splay cluster behaviour.
 - FEATURE: Setting cluster data (Supercluster's extractClusterData) is now optional.
-- BREAKINGL Requires dart 3 and flutter 3.1.
+- BREAKING: Requires dart 3 and flutter 3.1.
 - BREAKING: Updated to kdbush 0.0.5.
 - BREAKING: Updated to supercluster 2.1.1.
 - BREAKING: Updated to flutter_map 4.0.0.
 - BREAKING: Updated flutter_map_marker_popup to 5.0.0, breaking changes:
-  - The popupBuilder, popupSnap and popupAnimation options from PopupOptions are now combined in to
-    a single option: popupDisplayOptions.
-  - PopupMarkerLayerOptions.rotationAlignmentFor has been replaced with a new rotateAlignment
-    extension method on AnchorAlign. So
-    PopupMarkerLayerOptions.rotationAlignmentFor(AnchorAlign.top) becomes
-    AnchorAlign.top.rotationAlignment.
+    - The popupBuilder, popupSnap and popupAnimation options from PopupOptions are now combined in
+      to a single option: popupDisplayOptions.
+    - PopupMarkerLayerOptions.rotationAlignmentFor has been replaced with a new rotateAlignment
+      extension method on AnchorAlign. So
+      PopupMarkerLayerOptions.rotationAlignmentFor(AnchorAlign.top) becomes
+      AnchorAlign.top.rotationAlignment.
 - BREAKING: Popups are now controlled via the RadiusClusterController. This is necessary to properly
   support displaying popups for splayed markers.
 - BREAKING: The following marker rotation options have been removed, they should be set on the
   markers themselves:
-  - rotate
-  - rotateOrigin
-  - rotateAlignment
+    - rotate
+    - rotateOrigin
+    - rotateAlignment
 - BREAKING: RadiusClusterLayer's onClusterTap is now replaced with moveMap. The moveMap callback
   defines how RadiusClusterLayer moves the map.
 - BREAKING: RadiusClusterController.moveToMarker's move option has been renamed to moveMap.
 
-
 ## [2.4.0]
 
- - BREAKING: Clusters no longer have a tap behaviour by default. Previously tapping a cluster
-             zoomed in until its markers were visible but now this is optional behaviour that can
-             be implented using onClusterTap which provides the minimum zoom required to view the
-             cluster's points. See the example app for examples of both animated and non-animated
-             zooming.
- - BREAKING: RadiusClusterController moveToMarker's arguments have changed. The popup behaviour is
-             now the same as the RadiusClusterLayer's popupOptions and showing popups is controlled
-             with the showPopup option. The style of movement can be changed using the [move]
-             callback, see the documentation and the example app for more information.
- - BREAKING: ClusterZoomAnimation has been removed, movement animations can now be configured by
-             the user, see the two previous points.
- - FEATURE: Various performance improvements around rendering of search circles.
- - FEATURE: All movement is now controlled by the user which means they may now choose to use an
-            animated flutter map movement plugin like flutter_map_aniamtions to animate movement.
+- BREAKING: Clusters no longer have a tap behaviour by default. Previously tapping a cluster
+  zoomed in until its markers were visible but now this is optional behaviour that can
+  be implented using onClusterTap which provides the minimum zoom required to view the
+  cluster's points. See the example app for examples of both animated and non-animated
+  zooming.
+- BREAKING: RadiusClusterController moveToMarker's arguments have changed. The popup behaviour is
+  now the same as the RadiusClusterLayer's popupOptions and showing popups is controlled
+  with the showPopup option. The style of movement can be changed using the [move]
+  callback, see the documentation and the example app for more information.
+- BREAKING: ClusterZoomAnimation has been removed, movement animations can now be configured by
+  the user, see the two previous points.
+- FEATURE: Various performance improvements around rendering of search circles.
+- FEATURE: All movement is now controlled by the user which means they may now choose to use an
+  animated flutter map movement plugin like flutter_map_aniamtions to animate movement.
 
 ## [2.3.0]
 
 - FEATURE: Added RadiusClusterController.moveToMarker which allows the map to be moved to a marker
-           and, if required to make the marker visible, trigger searching and zooming.
+  and, if required to make the marker visible, trigger searching and zooming.
 - BREAKING: Remove stream getter from RadiusClusterController since the stream only exists for
-            passing events to RadiusClusterLayer.
+  passing events to RadiusClusterLayer.
 
 ## [2.2.1]
 
@@ -65,9 +81,9 @@ are revealed.
 ## [2.2.0]
 
 - BREAKING: `searchCircleStyle` is now `searchCircleOptions` and allows more customisation of
-            search circles in the various states. Notably search circles may now have a repeating
-            fade animation. If you use the default options the loading circle indicator will use
-            this animation.
+  search circles in the various states. Notably search circles may now have a repeating
+  fade animation. If you use the default options the loading circle indicator will use
+  this animation.
 
 ## [2.1.0]
 

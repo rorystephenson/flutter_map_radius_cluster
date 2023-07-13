@@ -2,8 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_map/plugin_api.dart';
-import 'package:flutter_map_radius_cluster/src/flutter_map_state_extension.dart';
 import 'package:flutter_map_radius_cluster/src/layer_element_extension.dart';
+import 'package:flutter_map_radius_cluster/src/map_camera_extension.dart';
 import 'package:flutter_map_radius_cluster/src/radius_cluster_layer.dart';
 import 'package:flutter_map_radius_cluster/src/splay/cluster_splay_delegate.dart';
 import 'package:flutter_map_radius_cluster/src/splay/displaced_marker.dart';
@@ -24,7 +24,7 @@ class ExpandedCluster {
   ExpandedCluster({
     required TickerProvider vsync,
     required this.layerCluster,
-    required FlutterMapState mapState,
+    required MapCamera camera,
     required List<LayerPoint<Marker>> layerPoints,
     required this.clusterSplayDelegate,
   })  : animation = AnimationController(
@@ -35,9 +35,9 @@ class ExpandedCluster {
           layerPoints.map((e) => e.originalPoint).toList(),
           clusterPosition: layerCluster.latLng,
           project: (latLng) =>
-              mapState.project(latLng, layerCluster.highestZoom.toDouble()),
+              camera.project(latLng, layerCluster.highestZoom.toDouble()),
           unproject: (point) =>
-              mapState.unproject(point, layerCluster.highestZoom.toDouble()),
+              camera.unproject(point, layerCluster.highestZoom.toDouble()),
         ),
         maxMarkerSize = layerPoints.fold(
           Size.zero,
@@ -65,13 +65,13 @@ class ExpandedCluster {
   ClusterDataBase? get clusterData => layerCluster.clusterData;
 
   List<DisplacedMarkerOffset> displacedMarkerOffsets(
-    FlutterMapState mapState,
+    MapCamera camera,
     CustomPoint clusterPosition,
   ) =>
       clusterSplayDelegate.displacedMarkerOffsets(
         displacedMarkers,
         animation.value,
-        mapState.getPixelOffset,
+        camera.getPixelOffset,
         clusterPosition,
       );
 

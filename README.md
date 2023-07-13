@@ -3,9 +3,7 @@
 A clustering plugin for [flutter_map](https://github.com/fleaflet/flutter_map) with async
 marker/cluster searching within a defined radius.
 
-## Warning
-
-This plugin is new and the API is subject to change frequently in the near future.
+![Example](https://github.com/rorystephenson/project_gifs/blob/master/flutter_map_radius_cluster/demo.gif)
 
 ## Usage
 
@@ -17,7 +15,7 @@ dependencies:
   flutter_map_radius_cluster: any # or the latest version on Pub
 ```
 
-Add it to FlutterMap and configure it using `RadiusClusterLayerOptions`.
+Add it to FlutterMap.
 
 ```dart
   Widget build(BuildContext context) {
@@ -40,7 +38,6 @@ Add it to FlutterMap and configure it using `RadiusClusterLayerOptions`.
             /* ... your search implementation here */
           },
           clusterWidgetSize: const Size(40, 40),
-          anchor: AnchorPos.align(AnchorAlign.center),
           builder: (context, clusterData) {
             clusterData as ClusterDataWithCount;
             return Container(

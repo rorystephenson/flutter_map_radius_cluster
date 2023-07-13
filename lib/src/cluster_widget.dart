@@ -3,8 +3,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_radius_cluster/src/anchor_util.dart';
-import 'package:flutter_map_radius_cluster/src/flutter_map_state_extension.dart';
 import 'package:flutter_map_radius_cluster/src/layer_element_extension.dart';
+import 'package:flutter_map_radius_cluster/src/map_camera_extension.dart';
 import 'package:flutter_map_radius_cluster/src/radius_cluster_layer.dart';
 import 'package:supercluster/supercluster.dart';
 
@@ -18,19 +18,19 @@ class ClusterWidget extends StatelessWidget {
 
   ClusterWidget({
     Key? key,
-    required FlutterMapState mapState,
+    required MapCamera camera,
     required this.cluster,
     required this.builder,
     required this.onTap,
     required this.size,
-    required AnchorPos? anchorPos,
-  })  : position = _getClusterPixel(
-          mapState,
-          cluster,
-          anchorPos,
-          size,
+    required Anchor anchor,
+  })  : position = AnchorUtil.removeAnchor(
+          camera.getPixelOffset(cluster.latLng),
+          size.width,
+          size.height,
+          anchor,
         ),
-        mapRotationRad = mapState.rotationRad,
+        mapRotationRad = camera.rotationRad,
         super(key: ValueKey(cluster.uuid));
 
   @override
@@ -48,20 +48,6 @@ class ClusterWidget extends StatelessWidget {
           child: builder(context, cluster.clusterData),
         ),
       ),
-    );
-  }
-
-  static Point<double> _getClusterPixel(
-    FlutterMapState mapState,
-    LayerCluster<Marker> cluster,
-    AnchorPos? anchorPos,
-    Size size,
-  ) {
-    return AnchorUtil.removeClusterAnchor(
-      mapState.getPixelOffset(cluster.latLng),
-      cluster,
-      anchorPos,
-      size,
     );
   }
 }

@@ -9,6 +9,7 @@ import 'package:kdbush/kdbush.dart';
 import 'package:latlong2/latlong.dart';
 
 class SplayClusterPage extends StatefulWidget {
+  static const title = 'Splay Cluster';
   static const route = 'splayClusterPage';
 
   const SplayClusterPage({Key? key}) : super(key: key);
@@ -23,17 +24,17 @@ class _SplayClusterPageState extends State<SplayClusterPage>
   late final AnimatedMapController _animatedMapController;
 
   static final points = [
-    LatLng(51.4001, -0.08001),
-    LatLng(51.4003, -0.08003),
-    LatLng(51.4005, -0.08005),
-    LatLng(51.4006, -0.08006),
-    LatLng(51.4009, -0.08009),
-    LatLng(51.5, -0.09),
-    LatLng(51.5, -0.09),
-    LatLng(51.5, -0.09),
-    LatLng(51.5, -0.09),
-    LatLng(51.5, -0.09),
-    LatLng(51.59, -0.099),
+    const LatLng(51.4001, -0.08001),
+    const LatLng(51.4003, -0.08003),
+    const LatLng(51.4005, -0.08005),
+    const LatLng(51.4006, -0.08006),
+    const LatLng(51.4009, -0.08009),
+    const LatLng(51.5, -0.09),
+    const LatLng(51.5, -0.09),
+    const LatLng(51.5, -0.09),
+    const LatLng(51.5, -0.09),
+    const LatLng(51.5, -0.09),
+    const LatLng(51.59, -0.099),
   ];
   late List<Marker> markers;
   late final KDBush<Marker, double> _kdbush;
@@ -48,7 +49,7 @@ class _SplayClusterPageState extends State<SplayClusterPage>
     markers = points
         .map(
           (point) => Marker(
-            anchorPos: AnchorPos.align(AnchorAlign.top),
+            anchorPos: const AnchorPos.align(AnchorAlign.top),
             rotateAlignment: AnchorAlign.top.rotationAlignment,
             height: 30,
             width: 30,
@@ -94,19 +95,16 @@ class _SplayClusterPageState extends State<SplayClusterPage>
             ),
           ),
         ),
-        appBar: AppBar(title: const Text('Splay Cluster Example')),
+        appBar: AppBar(title: const Text(SplayClusterPage.title)),
         body: FlutterMap(
-          mapController: _animatedMapController,
+          mapController: _animatedMapController.mapController,
           options: MapOptions(
-            center: LatLng(51.4931, -0.1003),
-            zoom: 10,
+            initialCenter: const LatLng(51.4931, -0.1003),
+            initialZoom: 10,
             onTap: (_, __) => _radiusClusterController.hideAllPopups(),
             maxZoom: 15,
           ),
           children: <Widget>[
-            Container(
-              color: Colors.blue,
-            ),
             TileLayer(
               urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
               subdomains: const ['a', 'b', 'c'],
@@ -116,14 +114,14 @@ class _SplayClusterPageState extends State<SplayClusterPage>
               radiusInKm: 100.0,
               search: _search,
               fixedOverlayBuilder: _searchButton,
-              initialCenter: LatLng(51.4931, -0.1003),
+              initialCenter: const LatLng(51.4931, -0.1003),
               minimumSearchDistanceDifferenceInKm: 10,
               moveMap: (center, zoom) => _animatedMapController.animateTo(
                 dest: center,
                 zoom: zoom,
               ),
               clusterWidgetSize: const Size(40, 40),
-              anchor: AnchorPos.align(AnchorAlign.center),
+              clusterAnchorPos: const AnchorPos.align(AnchorAlign.center),
               popupOptions: PopupOptions(
                 popupDisplayOptions: PopupDisplayOptions(
                   builder: (context, marker) {
@@ -142,8 +140,9 @@ class _SplayClusterPageState extends State<SplayClusterPage>
               ),
               clusterBuilder: (context, clusterData) => Container(
                 decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20.0),
-                    color: Colors.blue),
+                  borderRadius: BorderRadius.circular(20.0),
+                  color: Colors.blue,
+                ),
                 child: Center(
                   child: Text(
                     (clusterData as ClusterDataWithCount)

@@ -11,17 +11,28 @@ dependencies:
   cupertino_icons: ^1.0.5
   flutter:
     sdk: flutter
-  flutter_map: ^4.0.0
-  flutter_map_animations: ^0.3.0
+  flutter_map: ^6.0.0-dev.1
+  flutter_map_animations: ^0.4.2
   flutter_map_radius_cluster:
     path: ../
-  kdbush: ^0.0.5
-  latlong2: ^0.8.1
+  kdbush: ^0.1.0
+  latlong2: ^0.9.0
 
 dev_dependencies:
-  flutter_lints: ^2.0.1
+  flutter_lints: ^2.0.2
   flutter_test:
     sdk: flutter
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: AccurateMapIcon
+      fonts:
+        - asset: fonts/AccurateMapIcon.ttf
+
+
+dependency_overrides:
+  flutter_map_animations:
+    git:
+      url: https://github.com/rorystephenson/flutter_map_animations
+      ref: flutter-map-v6

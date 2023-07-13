@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_radius_cluster/src/anchor_util.dart';
-import 'package:flutter_map_radius_cluster/src/flutter_map_state_extension.dart';
+import 'package:flutter_map_radius_cluster/src/map_camera_extension.dart';
 import 'package:flutter_map_radius_cluster/src/splay/displaced_marker.dart';
 
 class MarkerWidget extends StatelessWidget {
@@ -18,12 +18,22 @@ class MarkerWidget extends StatelessWidget {
 
   MarkerWidget({
     super.key,
-    required FlutterMapState mapState,
+    required MapCamera camera,
     required this.marker,
     required this.markerBuilder,
     required this.onTap,
-  })  : mapRotationRad = mapState.rotationRad,
-        position = _getMapPointPixel(mapState, marker),
+  })  : mapRotationRad = camera.rotationRad,
+        position = AnchorUtil.removeAnchor(
+          camera.getPixelOffset(marker.point),
+          marker.width,
+          marker.height,
+          marker.anchor ??
+              Anchor.fromPos(
+                AnchorPos.defaultAnchorPos,
+                marker.width,
+                marker.height,
+              ),
+        ),
         rotateAlignment = marker.rotateAlignment,
         removeRotateOrigin = false;
 
@@ -67,18 +77,6 @@ class MarkerWidget extends StatelessWidget {
               alignment: rotateAlignment,
               child: child,
             ),
-    );
-  }
-
-  static Point<double> _getMapPointPixel(
-    FlutterMapState mapState,
-    Marker marker,
-  ) {
-    return AnchorUtil.removeAnchor(
-      mapState.getPixelOffset(marker.point),
-      marker.width,
-      marker.height,
-      marker.anchor,
     );
   }
 }

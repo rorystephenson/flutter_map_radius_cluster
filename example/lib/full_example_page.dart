@@ -4,34 +4,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_animations/flutter_map_animations.dart';
 import 'package:flutter_map_radius_cluster/flutter_map_radius_cluster.dart';
+import 'package:flutter_map_radius_cluster_example/example_cluster.dart';
 import 'package:flutter_map_radius_cluster_example/main.dart';
+import 'package:flutter_map_radius_cluster_example/randomly_generate_markers.dart';
 import 'package:kdbush/kdbush.dart';
 import 'package:latlong2/latlong.dart';
 
-class RadiusClusterLayerPage extends StatefulWidget {
-  static const route = 'radiusClusterLayerPage';
+class FullExamplePage extends StatefulWidget {
+  static const title = 'Full Example';
+  static const route = 'fullExamplePage';
 
-  const RadiusClusterLayerPage({Key? key}) : super(key: key);
+  const FullExamplePage({Key? key}) : super(key: key);
 
   @override
-  State<RadiusClusterLayerPage> createState() => _RadiusClusterLayerPageState();
+  State<FullExamplePage> createState() => _FullExamplePageState();
 }
 
-class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
+class _FullExamplePageState extends State<FullExamplePage>
     with TickerProviderStateMixin {
   late final AnimatedMapController _animatedMapController;
   late final RadiusClusterController _radiusClusterController;
 
   bool _animateMovement = true;
 
-  static const totalMarkers = 2000;
-  final minLatLng = LatLng(49.8566, 1.3522);
-  final maxLatLng = LatLng(58.3498, -10.2603);
+  static const _initialCenter = LatLng(49.8566, 1.3522);
+  static final List<Marker> markers = generateMarkers(
+    length: 2000,
+    center: _initialCenter,
+  );
+  static final KDBush<Marker, double> _kdbush = KDBush(
+    points: markers,
+    getX: (m) => m.point.longitude,
+    getY: (m) => m.point.latitude,
+  );
 
-  late final List<Marker> markers;
-  late final KDBush<Marker, double> _kdbush;
-
-  int _errorCursor = 0;
+  bool _simulateErrors = false;
 
   @override
   void initState() {
@@ -39,38 +46,6 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
 
     _animatedMapController = AnimatedMapController(vsync: this);
     _radiusClusterController = RadiusClusterController();
-
-    final latitudeRange = maxLatLng.latitude - minLatLng.latitude;
-    final longitudeRange = maxLatLng.longitude - minLatLng.longitude;
-
-    final stepsInEachDirection = sqrt(totalMarkers).floor();
-    final latStep = latitudeRange / stepsInEachDirection;
-    final lonStep = longitudeRange / stepsInEachDirection;
-
-    markers = <Marker>[];
-    for (var i = 0; i < stepsInEachDirection; i++) {
-      for (var j = 0; j < stepsInEachDirection; j++) {
-        final latLng = LatLng(
-          minLatLng.latitude + i * latStep,
-          minLatLng.longitude + j * lonStep,
-        );
-
-        markers.add(
-          Marker(
-            height: 30,
-            width: 30,
-            point: latLng,
-            builder: (ctx) => const Icon(Icons.pin_drop),
-          ),
-        );
-      }
-    }
-
-    _kdbush = KDBush(
-      points: markers,
-      getX: (m) => m.point.longitude,
-      getY: (m) => m.point.latitude,
-    );
   }
 
   @override
@@ -82,15 +57,11 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
 
   @override
   Widget build(BuildContext context) {
-    final initialLatLng = LatLng(
-      (minLatLng.latitude + maxLatLng.latitude) / 2,
-      (minLatLng.longitude + maxLatLng.longitude) / 2,
-    );
     return Scaffold(
-      drawer: buildDrawer(context, RadiusClusterLayerPage.route),
+      drawer: buildDrawer(context, FullExamplePage.route),
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(top: 130),
+        padding: const EdgeInsets.only(top: kToolbarHeight + 120),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.start,
@@ -142,16 +113,42 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
                 });
               },
             ),
+            const SizedBox(height: 8),
+            FloatingActionButton.extended(
+              heroTag: 'simulateErrors',
+              icon: const Icon(Icons.error),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text("Simulate Errors "),
+                  Switch(
+                      activeColor: Colors.blue.shade200,
+                      activeTrackColor: Colors.black38,
+                      value: _simulateErrors,
+                      onChanged: (newValue) {
+                        setState(() {
+                          _simulateErrors = newValue;
+                        });
+                      }),
+                ],
+              ),
+              onPressed: () {
+                setState(() {
+                  _simulateErrors = !_simulateErrors;
+                });
+              },
+            ),
           ],
         ),
       ),
-      appBar: AppBar(title: const Text('Flutter Map Radius Cluster Example')),
+      appBar: AppBar(title: const Text(FullExamplePage.title)),
       body: FlutterMap(
-        mapController: _animatedMapController,
+        mapController: _animatedMapController.mapController,
         options: MapOptions(
-          center: LatLng((maxLatLng.latitude + minLatLng.latitude) / 2,
-              (maxLatLng.longitude + minLatLng.longitude) / 2),
-          zoom: 6,
+          initialCenter: _initialCenter,
+          initialZoom: 8,
           maxZoom: 15,
           onTap: (_, __) => _radiusClusterController.hideAllPopups(),
         ),
@@ -164,8 +161,15 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
             controller: _radiusClusterController,
             radiusInKm: 100.0,
             search: _search,
-            fixedOverlayBuilder: _searchButton,
-            initialCenter: initialLatLng,
+            fixedOverlayBuilder: (context, controller, radiusClusterState) =>
+                Align(
+              alignment: Alignment.bottomCenter,
+              child: SearchButton(
+                radiusClusterController: controller,
+                radiusClusterState: radiusClusterState,
+              ),
+            ),
+            initialCenter: _initialCenter,
             minimumSearchDistanceDifferenceInKm: 10,
             moveMap: (center, zoom) {
               if (_animateMovement) {
@@ -174,14 +178,14 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
                   zoom: zoom,
                 );
               } else {
-                _animatedMapController.move(center, zoom);
+                _animatedMapController.mapController.move(center, zoom);
               }
             },
             onError: (error, _) {
               debugPrint('Captured search error: $error');
             },
             clusterWidgetSize: const Size(40, 40),
-            anchor: AnchorPos.align(AnchorAlign.center),
+            clusterAnchorPos: const AnchorPos.align(AnchorAlign.center),
             popupOptions: PopupOptions(
               popupDisplayOptions: PopupDisplayOptions(
                 builder: (context, marker) {
@@ -198,16 +202,8 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
                 color: Colors.red,
               ),
             ),
-            clusterBuilder: (context, clusterData) => Container(
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20.0),
-                  color: Colors.blue),
-              child: Center(
-                child: Text(
-                  (clusterData as ClusterDataWithCount).markerCount.toString(),
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
+            clusterBuilder: (context, clusterData) => ExampleCluster(
+              clusterData as ClusterDataWithCount,
             ),
           ),
         ],
@@ -215,75 +211,19 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
     );
   }
 
-  Widget _searchButton(
-    BuildContext context,
-    RadiusClusterController controller,
-    RadiusClusterState radiusClusterState,
-  ) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: _buttonFor(
-        radiusClusterState.nextSearchState,
-        controller.searchAtCenter,
-      ),
-    );
-  }
-
-  Widget _buttonFor(RadiusSearchNextSearchState state, VoidCallback search) {
-    switch (state) {
-      case RadiusSearchNextSearchState.ready:
-        return ElevatedButton(
-          onPressed: search,
-          child: const Text('Search'),
-        );
-      case RadiusSearchNextSearchState.loading:
-        return Align(
-          alignment: Alignment.bottomCenter,
-          child: ElevatedButton(
-            onPressed: null,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Container(
-                  width: 16,
-                  height: 16,
-                  margin: const EdgeInsets.only(right: 8),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white.withOpacity(0.5),
-                  ),
-                ),
-                const Text('Loading'),
-              ],
-            ),
-          ),
-        );
-      case RadiusSearchNextSearchState.error:
-        return ElevatedButton(
-          style: ButtonStyle(
-            backgroundColor: MaterialStateProperty.all(Colors.red),
-          ),
-          onPressed: search,
-          child: const Text('Search again'),
-        );
-      case RadiusSearchNextSearchState.disabled:
-        return const ElevatedButton(
-          onPressed: null,
-          child: Text('Search'),
-        );
-    }
-  }
-
   Future<SuperclusterImmutable<Marker>> _search(
       double radiusInKm, LatLng center) async {
-    await (Future.delayed(const Duration(seconds: 2)));
-    _errorCursor = (_errorCursor + 1) % 3;
-    if (_errorCursor == 0) throw 'Simulated error';
+    if (_simulateErrors) throw 'Simulated error';
+
+    // Simulated delay to show loading indicator.
+    await (Future.delayed(const Duration(seconds: 1)));
 
     final points = <Marker>[];
     for (final index in _kdbush.withinGeographicalRadius(
-        center.longitude, center.latitude, radiusInKm)) {
+      center.longitude,
+      center.latitude,
+      radiusInKm,
+    )) {
       points.add(markers[index]);
     }
 
@@ -291,6 +231,7 @@ class _RadiusClusterLayerPageState extends State<RadiusClusterLayerPage>
       getX: (m) => m.point.longitude,
       getY: (m) => m.point.latitude,
       extractClusterData: (marker) => ClusterDataWithCount(marker),
+      radius: 120,
     )..load(points);
   }
 }

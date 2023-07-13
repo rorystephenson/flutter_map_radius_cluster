@@ -5,14 +5,14 @@ import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_radius_cluster/src/options/popup_options_impl.dart';
 import 'package:flutter_map_radius_cluster/src/splay/cluster_splay_delegate.dart';
 import 'package:flutter_map_radius_cluster/src/splay/spread_cluster_splay_delegate.dart';
+import 'package:flutter_map_radius_cluster/src/state/inherit_or_create_radius_cluster_scope.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supercluster/supercluster.dart';
 
 import 'controller/radius_cluster_controller.dart';
 import 'options/popup_options.dart';
-import 'options/search_circle_options.dart';
+import 'options/search_circle_styles.dart';
 import 'radius_cluster_layer_impl.dart';
-import 'state/radius_cluster_scope.dart';
 import 'state/radius_cluster_state.dart';
 
 /// Builder for the cluster widget.
@@ -71,8 +71,8 @@ class RadiusClusterLayer extends StatelessWidget {
   /// returned by the [search] callback.
   final Function(dynamic error, StackTrace stackTrace)? onError;
 
-  /// The options for search circle in its various states.
-  final SearchCircleOptions searchCircleOptions;
+  /// The style for search circle in its various states.
+  final SearchCircleStyles searchCircleStyles;
 
   /// When tapping a cluster or moving to a [Marker] with
   /// [RadiusClusterController]'s moveToMarker method this callback controls
@@ -98,10 +98,18 @@ class RadiusClusterLayer extends StatelessWidget {
   /// controls the animation and style of the cluster splaying.
   final ClusterSplayDelegate clusterSplayDelegate;
 
-  /// Cluster anchor
-  final AnchorPos? anchor;
+  /// Cluster anchor position.
+  @Deprecated(
+    'Prefer `clusterAnchorPos` instead. '
+    'This method has been renamed to clusterAnchorPos for clarity. '
+    'This method is deprecated since v3.1.0',
+  )
+  final AnchorPos? anchorPos;
 
-  RadiusClusterLayer({
+  /// Cluster anchor position.
+  final AnchorPos clusterAnchorPos;
+
+  const RadiusClusterLayer({
     Key? key,
     required this.search,
     required this.clusterBuilder,
@@ -112,7 +120,13 @@ class RadiusClusterLayer extends StatelessWidget {
     this.initialClustersAndMarkers,
     this.minimumSearchDistanceDifferenceInKm,
     this.onError,
-    SearchCircleOptions? searchCircleOptions,
+    @Deprecated(
+      'Prefer `searchCircleStyles` instead. '
+      'This method has been renamed to searchCircleStyles for clarity. '
+      'This method is deprecated since v3.1.0',
+    )
+    SearchCircleStyles? searchCircleOptions,
+    SearchCircleStyles searchCircleStyles = const SearchCircleStyles(),
     Color? nextSearchIndicatorColor,
     this.moveMap,
     this.onMarkerTap,
@@ -122,49 +136,45 @@ class RadiusClusterLayer extends StatelessWidget {
       duration: Duration(milliseconds: 300),
       splayLineOptions: SplayLineOptions(),
     ),
-    this.anchor,
-  })  : assert(initialClustersAndMarkers == null || initialCenter != null,
-            'If initialClustersAndMarkers is provided initialCenter is required.'),
-        searchCircleOptions = searchCircleOptions ?? SearchCircleOptions(),
+    this.anchorPos,
+    this.clusterAnchorPos = AnchorPos.defaultAnchorPos,
+  })  : searchCircleStyles = searchCircleOptions ?? searchCircleStyles,
+        assert(
+          initialClustersAndMarkers == null || initialCenter != null,
+          'If initialClustersAndMarkers is provided initialCenter is required.',
+        ),
         super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final mapState = FlutterMapState.maybeOf(context)!;
-    final state = RadiusClusterState.maybeOf(context);
-
-    if (state != null) return _layer(mapState, state);
-
-    return RadiusClusterScope(
+    final clusterAnchor = Anchor.fromPos(
+      // ignore: deprecated_member_use_from_same_package
+      anchorPos ?? clusterAnchorPos,
+      clusterWidgetSize.width,
+      clusterWidgetSize.height,
+    );
+    return InheritOrCreateRadiusClusterScope(
       initialCenter: initialCenter,
       initialClustersAndMarkers: initialClustersAndMarkers,
-      child: Builder(
-        builder: (context) => _layer(
-          mapState,
-          RadiusClusterState.maybeOf(context)!,
-        ),
+      child: RadiusClusterLayerImpl(
+        camera: MapCamera.of(context),
+        search: search,
+        clusterBuilder: clusterBuilder,
+        mapController: MapController.of(context),
+        controller: controller,
+        radiusInKm: radiusInKm,
+        fixedOverlayBuilder: fixedOverlayBuilder,
+        minimumSearchDistanceDifferenceInKm:
+            minimumSearchDistanceDifferenceInKm,
+        onError: onError,
+        searchCircleStyles: searchCircleStyles,
+        moveMap: moveMap,
+        onMarkerTap: onMarkerTap,
+        popupOptions: popupOptions as PopupOptionsImpl?,
+        clusterWidgetSize: clusterWidgetSize,
+        clusterSplayDelegate: clusterSplayDelegate,
+        clusterAnchor: clusterAnchor,
       ),
-    );
-  }
-
-  Widget _layer(FlutterMapState mapState, RadiusClusterState state) {
-    return RadiusClusterLayerImpl(
-      mapState: mapState,
-      initialRadiusClusterState: state,
-      search: search,
-      clusterBuilder: clusterBuilder,
-      controller: controller,
-      radiusInKm: radiusInKm,
-      fixedOverlayBuilder: fixedOverlayBuilder,
-      minimumSearchDistanceDifferenceInKm: minimumSearchDistanceDifferenceInKm,
-      onError: onError,
-      searchCircleOptions: searchCircleOptions,
-      moveMap: moveMap,
-      onMarkerTap: onMarkerTap,
-      popupOptions: popupOptions as PopupOptionsImpl,
-      clusterWidgetSize: clusterWidgetSize,
-      clusterSplayDelegate: clusterSplayDelegate,
-      anchor: anchor,
     );
   }
 }
